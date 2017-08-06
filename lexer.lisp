@@ -38,30 +38,45 @@
 	 :initform nil 
 	 :reader name
 	 :documentation "The external name for this specific state.")
-   (enumr :initarg :enumr
-	  :initform (error "Requires an enumeration integer.")
-	  :reader enumr
-	  :documentation "The numerical enumeration this state takes on.")
-   (trans :initarg :trans
-	  :initform (make-hash-table)
-	  :reader trans
-	  :documentation "The transitions hash table.")))
+   (enumerator :initarg :enumerator
+	       :initform (error "Requires an enumeration integer.")
+	       :reader enumerator
+	       :documentation "The numerical enumeration this state takes on.")
+   (transitions :initarg :transitions
+	        :initform (make-hash-table)
+	        :accessor transitions
+	        :documentation "The transitions hash table.")
+   (q_0 ;:allocation :class
+        :initarg :q_0
+	;initform starting state of containing finite automaton
+	:reader q_0
+	:documentation "Initial state in containing automaton.")
+   (F ;:allocation :class
+      :initarg :F
+      ;initform accepting states of containing finite automaton
+      :reader F
+      :documentation "Final states in containing automaton.")))
  
 (defclass fa ()
   ((Q :initarg :Q
-      :reader Q
+      ;initform array of q-state names
+      :accessor Q
       :documentation "A set of states Q.")
    (Sigma :initarg :Sigma
+	  :initform 'cl-utf ;using lisp integrated character encoding
           :reader Sigma
           :documentation "A finite set of input symbols Σ.")
    (Delta :initarg :Delta
-          :reader Delta
-          :documentation "A transition function Δ : Q × Σ → P(Q).")
+	  ;initform array of q-state ojects containing transitions (Q × Σ)
+          :accessor Delta
+          :documentation "A transition function Δ : Q × Σ → P(Q).") ∈ Q
    (q_0 :initarg :q_0
+	;initform first q-state object
         :reader q_0
         :documentation "An initial (or start) state q_0 ∈ Q.")
    (F :initarg :F
-      :reader F
+      ;initform array of accepting q-state objects 
+      :accessor F
       :documentation #.(format nil "A set of states F distinguished as ~
                                    accepting (or final) states F ⊆ Q.")))
   (:documentation #.(format nil "A Finite Automaton is represented formally ~
@@ -75,26 +90,35 @@
 (defclass dfa (finite-automata) ()
   (:documentation "A Deterministic Finite Automaton."))
 
+; Initialize name field from enumeration in q-state.
 (defmethod initialize-instance :after ((instance q-state)
 				       &key (name-preface "q_"))
   (unless (slot-value instance 'name)
     (setf (slot-value instance 'name)
-	  (format nil "~a~d" name-preface (slot-value instance 'enumr)))))
+	  (format nil "~a~d" name-preface (slot-value instance 'enumerator)))))
 
-(defun make-q-state (enumr &key (name-preface "q_"))
+; Make instance of q-state class.
+(defun make-q-state (enumerator &key (name-preface "q_"))
   (make-instance 'q-state
-		 :enumr enumr
+		 :enumerator enumerator
 		 :name-preface name-preface))
 
-(defun make-Q-set (number-of-states)
+; Make array of q-state names.
+(defun make-Q-set (number-of-states &key (name-preface "q_"))
   (do ((Q (make-array number-of-states
 		      :initial-element nil
-		      :adjustable nil
+		      :adjustable t
 		      :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Q) ;end on number after last entry
-    (vector-push (make-q-state entry-number) Q)))
+    (vector-push (format nil "~a~d" name-preface entry-number))))
 
-;;   read regular expression -> accumulate nfa pieces -> create nfa ->
-;; -> interpret nfa against sequence OR create code from nfa and interpret ->
-;; create token sequence and symbol table.
+; Make data structure with Delta function maps in automaton.
+(defun make-Delta-map (number-of-states &rest rest)
+  (do ((Delta (make-array number-of-states
+	 	          :initial-element nil
+		          :adjustable t
+		          :fill-pointer 0))
+       (entry-number 0 (1+ entry-number)))
+      ((= entry-number number-of-states) Delta) ;end on number after last entry
+    (vector-push (make-q-state entry-number rest) Delta)))
