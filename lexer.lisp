@@ -43,7 +43,7 @@
 	       :reader enumerator
 	       :documentation "The numerical enumeration this state takes on.")
    (transitions :initarg :transitions
-	        :initform (make-hash-table)
+	        :initform (make-hash-table) ; :test 'eql works for characters
 	        :accessor transitions
 	        :documentation "The transitions hash table.")
    (q_0 ;:allocation :class
@@ -69,7 +69,7 @@
    (Delta :initarg :Delta
 	  ;initform array of q-state ojects containing transitions (Q × Σ)
           :accessor Delta
-          :documentation "A transition function Δ : Q × Σ → P(Q).") ∈ Q
+          :documentation "A transition function Δ : Q × Σ → P(Q).")
    (q_0 :initarg :q_0
 	;initform first q-state object
         :reader q_0
@@ -111,14 +111,14 @@
 		      :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Q) ;end on number after last entry
-    (vector-push (format nil "~a~d" name-preface entry-number))))
+    (vector-push (format nil "~a~d" name-preface entry-number) Q)))
 
 ; Make data structure with Delta function maps in automaton.
-(defun make-Delta-map (number-of-states &rest rest)
+(defun make-Delta-map (number-of-states &rest keys)
   (do ((Delta (make-array number-of-states
 	 	          :initial-element nil
 		          :adjustable t
 		          :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Delta) ;end on number after last entry
-    (vector-push (make-q-state entry-number rest) Delta)))
+    (vector-push (apply #'make-q-state entry-number keys) Delta)))
