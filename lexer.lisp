@@ -40,7 +40,7 @@
 	 :documentation "The external name for this specific state.")
    (enumerator :initarg :enumerator
 	       :initform (error "Requires an enumeration integer.")
-	       :reader enumerator
+	       :accessor enumerator
 	       :documentation "The numerical enumeration this state takes on.")
    (transitions :initarg :transitions
 	        :initform (make-hash-table) ; :test 'eql works for characters
@@ -55,11 +55,15 @@
       :initarg :F
       ;initform accepting states of containing finite automaton
       :accessor F
-      :documentation "Final states in containing automaton.")))
+      :documentation "Final states in containing automaton.")
+   (q-name-preface :initarg :q-name-preface
+		   :initform "q_"
+		   :accessor q-name-preface
+		   :documentation "Naming convention for new created states.")))
  
 (defclass fa ()
   ((Q :initarg :Q
-      :initform (make-Q-set 1) ;array of q-state names
+      ;:initform (make-Q-set 1 :q-name-preface "q_") ;array of q-state names
       :accessor Q
       :documentation "A set of states Q.")
    (Sigma :initarg :Sigma
@@ -67,7 +71,8 @@
           :accessor Sigma
           :documentation "A finite set of input symbols Σ.")
    (Delta :initarg :Delta
-	  :initform (make-Delta-map 1) ;array of q-state ojects
+	  ;:initform (make-Delta-map 1 :q-name-preface "q_")
+					;array of q-state ojects
           :accessor Delta
           :documentation "A transition function Δ : Q × Σ → P(Q).")
    (q_0 :initarg :q_0
@@ -78,7 +83,11 @@
       :initform (make-F-set 1) ;array of accepting q-state objects 
       :accessor F
       :documentation #.(format nil "A set of states F distinguished as ~
-                                   accepting (or final) states F ⊆ Q.")))
+                                   accepting (or final) states F ⊆ Q."))
+   (q-name-preface :initarg :q-name-preface
+		   :initform "q_"
+		   :accessor q-name-preface
+		   :documentation "Naming convention for new created states."))
   (:documentation #.(format nil "A Finite Automaton is represented formally ~
                                  by a 5-tuple: (Q, Σ, Δ, q_0, F).")))
     
@@ -92,24 +101,25 @@
 
 ; Initialize name field from enumeration in q-state.
 (defmethod initialize-instance :after ((q-state-instance q-state)
-				       &key (name-preface "q_"))
-  (unless (slot-value q-state-instance 'name)
-    (setf (slot-value q-state-instance 'name)
-	  (format nil "~a~d" name-preface (slot-value q-state-instance
-						      'enumerator)))))
-
+				       &key &allow-other-keys)
+  (setf (name q-state-instance)
+	(format nil
+		"~a~d"
+		(q-name-preface q-state-instance)
+		(enumerator q-state-instance))))
+		
 ; Make array of q-state names.
-(defun make-Q-set (number-of-states &key (name-preface "q_"))
+(defun make-Q-set (number-of-states &key q-name-preface)
   (do ((Q (make-array number-of-states
 		      :initial-element nil
 		      :adjustable t
 		      :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Q) ; <- return Q
-    (vector-push (format nil "~a~d" name-preface entry-number)
+    (vector-push (format nil "~a~d" q-name-preface entry-number)
 		 Q)))
 
-; Make data structure with Delta function maps in automaton.
+; Make data structure with Delta function map for the finite automaton.
 (defun make-Delta-map (number-of-states &rest keys)
   (do ((Delta (make-array number-of-states
 	 	          :initial-element nil
@@ -129,9 +139,13 @@
 	      :adjustable t
 	      :fill-pointer 0))
 
-(defmethod initialize-instance :after ((fa-instance fa) &key &allow-other-keys)
-  (let ((1st-q-state (aref (slot-value fa-instance 'Delta) 0)))
-    (setf (q_0 fa-instance) 1st-q-state)
-    (setf (q_0 1st-q-state) 1st-q-state)
-    (setf (F 1st-q-state) (F fa-instance))))
+(defmethod initialize-instance :after ((fa-instance fa)
+				       &key &allow-other-keys)
+  (with-slots (Q Delta q_0 F q-name-preface) fa-instance
+    (setf Q (make-Q-set 1 :q-name-preface q-name-preface))
+    (setf Delta (make-Delta-map 1 :q-name-preface q-name-preface))
+    (let ((1st-q-state (aref Delta 0)))
+      (setf q_0 1st-q-state)
+      (setf (q_0 1st-q-state) 1st-q-state)
+      (setf (F 1st-q-state) F))))
 
