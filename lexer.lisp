@@ -19,17 +19,13 @@
 ;;
 ;;   Whatever type each state is, it is enumerated by the integer indices of an
 ;; array (Q).
-;;
 ;;   Whatever the input symbols are, they need enumeration--however, we are going
 ;; to use the built in character encoding functions in lisp to give us that
 ;; mapping (signified by a 'cl-utf slot-value).
-;;
 ;;   Using the enumeration from Q we store the set of transitions as a hash table
 ;; for each input symbol under the same index integer.
-;;
 ;;   The q_0 slot is the standard name in the mathematical definition for the
 ;; starting state.
-;;
 ;;   F is an array of the same size as Q with the accepting states under the same
 ;; respective indices as the states under Q.
 
@@ -116,7 +112,7 @@
 		      :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Q) ; <- return Q
-    (vector-push (format nil "~a~d" q-name-preface entry-number)
+    (vector-push-extend (format nil "~a~d" q-name-preface entry-number)
 		 Q)))
 
 ; Make data structure with Delta function map for the finite automaton.
@@ -127,7 +123,7 @@
 		          :fill-pointer 0))
        (entry-number 0 (1+ entry-number)))
       ((= entry-number number-of-states) Delta) ; <- return Delta
-    (vector-push (apply #'make-instance
+    (vector-push-extend (apply #'make-instance
 			'q-state
 			:enumerator entry-number
 			keys)
@@ -139,8 +135,7 @@
 	      :adjustable t
 	      :fill-pointer 0))
 
-(defmethod initialize-instance :after ((fa-instance fa)
-				       &key &allow-other-keys)
+(defmethod initialize-instance :after ((fa-instance fa) &key &allow-other-keys)
   (with-slots (Q Delta q_0 F q-name-preface) fa-instance
     (setf Q (make-Q-set 1 :q-name-preface q-name-preface))
     (setf Delta (make-Delta-map 1 :q-name-preface q-name-preface))
@@ -149,3 +144,21 @@
       (setf (q_0 1st-q-state) 1st-q-state)
       (setf (F 1st-q-state) F))))
 
+(defgeneric push-q (fa-instance q-state-instance &key &allow-other-keys)
+  (:documentation "Push new xor passed q-state onto states."))
+
+; Ignorantly push object onto FA.
+(defmethod push-q ((fa-instance fa) (q-state-instance q-state)
+			 &key &allow-other-keys)
+  (with-slots (Q Delta) fa-instance
+    (with-slots ((q-name name)) q-state-instance
+      (vector-push-extend q-name Q)
+      (vector-push-extend q-state-instance Delta))))
+
+(defgeneric make-next-q (q-state-instance &key &allow-other-keys)
+  (:documentation "Create next q-state by iterating a current one."))
+
+(defmethod make-next-q ((q-state-instance q-state) &key &allow-other-keys)
+  (with-slots (name enumeration) q-state-instance
+    
+  
