@@ -159,6 +159,11 @@
   (:documentation "Create next q-state by iterating a current one."))
 
 (defmethod make-next-q ((q-state-instance q-state) &key &allow-other-keys)
-  (with-slots (name enumeration) q-state-instance
+  (with-slots ((prev-enum enumeration) q_0 F q-name-preface) q-state-instance
+    (make-instance 'q-state :enumeration (+ prev-enum 1)
+			    :q_0 q_0
+			    :F F
+			    :q-name-preface q-name-preface)))
+			    
     
   
