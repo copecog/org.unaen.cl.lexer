@@ -1,3 +1,14 @@
+;;;; lexer.lisp
+;;;;
+;;;; Copyright (C) 2017 Christopher H Cope
+;;;; All rights reserved.
+;;;;
+;;;; This software may be modified and distributed under the terms
+;;;; of the BSD license.  See the LICENSE file for details.
+
+;;;; This is intended as a most literal implementation according to the
+;;;; mathematical definition of finite automata used by lexers.
+
 (in-package #:lexer)
 
 ;; Arbitrary abstractions
