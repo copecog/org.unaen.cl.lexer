@@ -2,6 +2,7 @@
 
 (defclass name ()
   ((name :initarg :name
+	 ;:initform
 	 :reader name
 	 :documentation "External name for a specific state.")))
 
@@ -30,21 +31,33 @@
 	  :documentation "Transitions from a specific state.")))
 
 (defclass init-state ()
-  ((init-state :initarg init-state
+  ((init-state :initarg :init-state
+	       ;:initform
 	       :reader init-state
 	       :documentation "Initial state of a finite state automaton.")))
 
 (defclass final-states ()
-  ((final-states :initarg final-states
+  ((final-states :initarg :final-states
+		 ;:initform
 		 :reader final-states
 		 :documentation "Final states of a finite state automaton.")))
-
-(defclass states ()
-  ((states :initarg states
-	   :reader states
-	   :documentation "All the states of a finite state automaton.")))
 
 (defclass state (name iterate trans init-state final-states name-preface) ()
   (:documentation "A specific state in a finite state automaton."))
 
-(defclass 
+(defclass state-names ()
+  ((state-names :initarg :state-names
+		;:initform
+	        :reader state-names
+	        :documentation "All names for states of a finite automaton.")))
+
+(defclass states ()
+  ((states :initarg :states
+	   ;:initform
+	   :reader states
+	   :documentation "All states of a finite automaton.")))
+
+(defclass FA (state-names alphabet states init-state final-states) ()
+  (:documentation #.(format nil "A Finite Automaton is represented formally ~
+                                 by a 5-tuple: (Q, Σ, Δ, q_0, F).")))
+

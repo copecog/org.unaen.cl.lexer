@@ -88,11 +88,11 @@
                                  by a 5-tuple: (Q, Σ, Δ, q_0, F).")))
     
 ; https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton
-(defclass nfa (finite-automata) ()
+(defclass nfa (fa) ()
   (:documentation "A Nondeterministic Finite Automaton."))
 
 ; https://en.wikipedia.org/wiki/Deterministic_finite_automaton
-(defclass dfa (finite-automata) ()
+(defclass dfa (fa) ()
   (:documentation "A Deterministic Finite Automaton."))
 
 ; Initialize name field from enumeration in q-state.
@@ -164,6 +164,4 @@
 			    :q_0 q_0
 			    :F F
 			    :q-name-preface q-name-preface)))
-			    
-    
-  
+
