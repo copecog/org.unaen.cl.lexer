@@ -22,17 +22,6 @@
 
 (in-package #:lexer)
 
-;;; Arbitrary Abstractions
-
-(defun make-state-name (preface iterate)
-  (format nil "~a~d" preface iterate))
-
-(defun make-state-vector (size)
-  (make-array size
-	      :initial-element nil
-	      :adjustable t
-	      :fill-pointer 0))
-
 ;;; Buildup For Individual state 's
 
 ;;   There are several classes of states across varying classes of finite
@@ -56,10 +45,10 @@
 
 ;;   To initialize a state, we name the state using the name-preface
 ;; and the iterate.
-(defmethod initialize-instance :after ((name-instance name)
+(defmethod initialize-instance :after ((name-obj name)
 				       &key &allow-other-keys)
-  (with-slots (name (preface name-preface) iterate) name-instance
-    (setf name (make-state-name preface iterate))))
+  (with-slots (name (preface name-preface) iterate) name-obj
+    (setf name (format nil "~a~d" preface iterate))))
 
 ;;   The transitions are a hashtable that associates the literal next state
 ;; object with a character.
@@ -86,14 +75,17 @@
 ;; indices of an array.
 (defclass state-names (name)
   ((state-names :initarg :state-names
-		:initform (make-state-vector 1)
+		:initform (make-array 1
+				      :initial-element nil
+				      :adjustable t
+				      :fill-pointer 0)
 	        :reader state-names
 	        :documentation "All names for states of a finite automaton.")))
 
 ;;   Push initial state name onto "state-names".
-(defmethod initialize-instance :after ((state-names-instance state-names)
+(defmethod initialize-instance :after ((state-names-obj state-names)
 				       &key &allow-other-keys)
-  (with-slots (name state-names) state-names-instance
+  (with-slots (name state-names) state-names-obj
     (vector-push-extend name state-names)))
 
 ;;   The set Σ of input symbols.  Whatever the input symbols are, they need
@@ -137,7 +129,11 @@
 ;; with the accepting states under the same respective indices as under Q.
 (defclass final-state-names ()
   ((final-state-names :initarg :final-state-names
-		      :initform (make-state-vector 1)
+		      :initform (make-array 1
+					    :initial-element 'nil
+					    :adjustable t
+					    :fill-pointer 1)
+
 		      :reader final-state-names
 		      :documentation "Final states of a finite automaton.")))
 
@@ -166,8 +162,8 @@
 
 (defmethod push-state :before ((name-obj name) (state-names-obj state-names)
 			       &key &allow-other-keys)
-  (with-slots (state-names) state-names-obj
-    (with-slots (name) name-obj
+  (with-slots (name) name-obj
+    (with-slots (state-names) state-names-obj
       (vector-push-extend name state-names))))
 
 (defmethod push-state ((name-obj name) (new-state-names-obj state-names)
@@ -182,4 +178,22 @@
 (defmethod push-state ((state-obj state) (new-states-obj states)
 		       &key &allow-other-keys)
   new-states-obj) ;Simply return mutated object by :before method.
+
+(defmethod push-state :before ((name-obj name)
+			       (final-state-names-obj final-state-names)
+			  &key (final-state nil) &allow-other-keys)
+  (with-slots (name) name-obj
+    (with-slots (final-state-names) final-state-names-obj
+      (if final-state
+	  (vector-push-extend name final-state-names)
+	  (vector-push-extend 'nil final-state-names)))))
+
+(defmethod push-state ((name-obj name)
+		       (final-state-names-obj final-state-names)
+		       &key &allow-other-keys)
+  final-state-names-obj) ;Simply return mutated object by :before method.
+
+(defgeneric make-next-state (state-reference &key &allow-other-keys)
+  (:documentation "Make a new (next) state object from a reference object."))
+
 
