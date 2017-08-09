@@ -6,12 +6,24 @@
 ;;;; This software may be modified and distributed under the terms
 ;;;; of the BSD license.  See the LICENSE file for details.
 
-;;;; This is intended as a most literal implementation according to the
+;;;;   This is intended as a most literal implementation according to the
 ;;;; mathematical definition of finite automata used by lexers.
+
+;;;;   The plan is to make something that takes a sort of expression mapping
+;;;; directly to piece-wise construction of regular expression NFAs (since
+;;;; regular expression grammar itself is context-free), and then convert the
+;;;; NFA to a DFA, and the DFA to a generated function that can be used as a
+;;;; scanner.
+
+;;;;   After I complete this, I want to write a parser for context free
+;;;; grammars that couples with this scanner so that I can generate
+;;;; scanner/lexer functions for regular expressions and perl-style regular
+;;;; expressions.
 
 (in-package #:lexer)
 
-;; Arbitrary abstractions
+;;; Arbitrary Abstractions
+
 (defun make-state-name (preface iterate)
   (format nil "~a~d" preface iterate))
 
@@ -21,8 +33,7 @@
 	      :adjustable t
 	      :fill-pointer 0))
 
-;; ------------------------------------------------------------------------------
-;;   Buildup for individual states.
+;;; Buildup For Individual state 's
 
 ;;   There are several classes of states across varying classes of finite
 ;; automata as well as transitional sets of states while functionally mapping
@@ -64,8 +75,7 @@
 (defclass state (name transitions) ()
   (:documentation "A specific state in a finite state automaton."))
 
-;; ------------------------------------------------------------------------------
-;; Buildup of finite automata
+;;; Buildup of Finite Automata
 
 ;;    Note: The "iterate" slot inherited from the name class is used to track
 ;; the last state name/instance that was created as well as the "name-preface"
@@ -113,7 +123,7 @@
 ;; q_0 ∈ Q in the mathematical definition.
 (defclass init-state-name (name)
   ((init-state-name :initarg :init-state-name
-	            ;:initform name
+	            ;; :initform name
 	            :reader init-state-name
 	            :documentation "Initial state of a finite automaton.")))
 
@@ -137,14 +147,138 @@
   (:documentation #.(format nil "A Finite Automaton is represented formally ~
                                  by a 5-tuple: (Q, Σ, Δ, q_0, F).")))
 
-;; ------------------------------------------------------------------------------
+;;; Non-Deterministic Finite Automata
 
 ;; https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton
 (defclass NFA (FA) ()
   (:documentation "A Nondeterministic Finite Automaton."))
 
+;;; Deterministic Finite Automata
+
 ;; https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 (defclass DFA (FA) ()
   (:documentation "A Deterministic Finite Automaton."))
 
+;;; Not so organized stuff...
 
+(defclass test-class ()
+  ((test-slot1 :initarg :test-slot1
+	       :initform 'this-is-datum1
+	       :accessor test-slot1)))
+
+(defclass test-class-2 (test-class)
+  ((test-slot2 :initarg :test-slot2
+	       :initform 'this-is-datum2
+	       :accessor test-slot2)))
+
+(defgeneric do-stuff (to-this-object))
+
+(defmethod do-stuff ((thing test-class))
+  (with-slots (test-slot1) thing
+    (setf test-slot1 'blah1)))
+
+(defgeneric make-blah (type &key &allow-other-keys))
+
+(defmethod make-blah ((type null) &key &allow-other-keys)
+  'nil)
+
+(defmethod make-blah ((type symbol) &key &allow-other-keys)
+  'symbol)
+
+(defmethod make-blah ((type cons) &key &allow-other-keys)
+  'cons)
+
+;;; Random notes...
+
+;; class
+;;   -> superclasses*
+;;   slot*
+;;     type
+;;       type
+
+;; name
+;;   name
+;;     string
+;;   name-preface
+;;     string
+;;   iterate
+;;     integer
+;; transitions
+;;   transitions
+;;     hash-table
+;; state
+;;   -> name
+;;   -> transitions
+;; state-names
+;;   -> name
+;;   state-names
+;;     vector
+;;       strings
+;; alphabet
+;;   alphabet
+;; states
+;;   -> name
+;;   states
+;;     vector
+;;       state(s)
+;; init-state-name
+;;   -> name
+;;   init-state-name
+;;     string
+;; final-state-names
+;;   final-state-names
+;;     vector
+;;       strings
+;; FA
+;;   -> state-names
+;;      -> name
+;;   -> alphabet
+;;   -> states
+;;     -> name
+;;   -> init-state-name
+;;     -> name
+;;   -> final-state-names
+
+;; set/get
+;;   slot
+;;     class
+
+;;   name
+;;     name
+;;     state
+;;     state-names
+;;     states
+;;     init-state-name
+;;     FA
+;;   name-preface
+;;     name
+;;     state
+;;     state-names
+;;     states
+;;     init-state-name
+;;     FA
+;;   iterate
+;;     name
+;;     state
+;;     state-names
+;;     states
+;;     init-state-name
+;;     FA
+;;   transitions
+;;     transitions
+;;     state
+;;   state-names
+;;     state-names
+;;     FA
+;;   alphabet
+;;     alphabet
+;;     FA
+;;   states
+;;     states
+;;     FA
+;;   init-state-name
+;;     init-state-name
+;;     FA
+;;   final-state-names
+;;     final-state-names
+;;     FA
