@@ -71,7 +71,7 @@
 
 ;;   A state q ∈ Q in finite automata. (Note: The "iterate" slot inherited
 ;; from the name class is used as the permanent enumeration for the respective
-;; state class instance.)
+;; series of the state class instances.)
 (defclass state (name transitions) ()
   (:documentation "A specific state in a finite state automaton."))
 
@@ -159,126 +159,27 @@
 (defclass DFA (FA) ()
   (:documentation "A Deterministic Finite Automaton."))
 
-;;; Not so organized stuff...
+;;; Functions
 
-(defclass test-class ()
-  ((test-slot1 :initarg :test-slot1
-	       :initform 'this-is-datum1
-	       :accessor test-slot1)))
+(defgeneric push-state (state collection &key &allow-other-keys)
+  (:documentation "Push state object onto automaton."))
 
-(defclass test-class-2 (test-class)
-  ((test-slot2 :initarg :test-slot2
-	       :initform 'this-is-datum2
-	       :accessor test-slot2)))
+(defmethod push-state :before ((name-obj name) (state-names-obj state-names)
+			       &key &allow-other-keys)
+  (with-slots (state-names) state-names-obj
+    (with-slots (name) name-obj
+      (vector-push-extend name state-names))))
 
-(defgeneric do-stuff (to-this-object))
+(defmethod push-state ((name-obj name) (new-state-names-obj state-names)
+		       &key &allow-other-keys)
+  new-state-names-obj) ;Simply return mutated object by :before method.
 
-(defmethod do-stuff ((thing test-class))
-  (with-slots (test-slot1) thing
-    (setf test-slot1 'blah1)))
+(defmethod push-state :before ((state-obj state) (states-obj states)
+			       &key &allow-other-keys)
+  (with-slots (states) states-obj
+    (vector-push-extend state-obj states)))
 
-(defgeneric make-blah (type &key &allow-other-keys))
+(defmethod push-state ((state-obj state) (new-states-obj states)
+		       &key &allow-other-keys)
+  new-states-obj) ;Simply return mutated object by :before method.
 
-(defmethod make-blah ((type null) &key &allow-other-keys)
-  'nil)
-
-(defmethod make-blah ((type symbol) &key &allow-other-keys)
-  'symbol)
-
-(defmethod make-blah ((type cons) &key &allow-other-keys)
-  'cons)
-
-;;; Random notes...
-
-;; class
-;;   -> superclasses*
-;;   slot*
-;;     type
-;;       type
-
-;; name
-;;   name
-;;     string
-;;   name-preface
-;;     string
-;;   iterate
-;;     integer
-;; transitions
-;;   transitions
-;;     hash-table
-;; state
-;;   -> name
-;;   -> transitions
-;; state-names
-;;   -> name
-;;   state-names
-;;     vector
-;;       strings
-;; alphabet
-;;   alphabet
-;; states
-;;   -> name
-;;   states
-;;     vector
-;;       state(s)
-;; init-state-name
-;;   -> name
-;;   init-state-name
-;;     string
-;; final-state-names
-;;   final-state-names
-;;     vector
-;;       strings
-;; FA
-;;   -> state-names
-;;      -> name
-;;   -> alphabet
-;;   -> states
-;;     -> name
-;;   -> init-state-name
-;;     -> name
-;;   -> final-state-names
-
-;; set/get
-;;   slot
-;;     class
-
-;;   name
-;;     name
-;;     state
-;;     state-names
-;;     states
-;;     init-state-name
-;;     FA
-;;   name-preface
-;;     name
-;;     state
-;;     state-names
-;;     states
-;;     init-state-name
-;;     FA
-;;   iterate
-;;     name
-;;     state
-;;     state-names
-;;     states
-;;     init-state-name
-;;     FA
-;;   transitions
-;;     transitions
-;;     state
-;;   state-names
-;;     state-names
-;;     FA
-;;   alphabet
-;;     alphabet
-;;     FA
-;;   states
-;;     states
-;;     FA
-;;   init-state-name
-;;     init-state-name
-;;     FA
-;;   final-state-names
-;;     final-state-names
-;;     FA
