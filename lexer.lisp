@@ -1,199 +1,111 @@
-;;;; lexer.lisp
-;;;;
-;;;; Copyright (C) 2017 Christopher H Cope
-;;;; All rights reserved.
-;;;;
-;;;; This software may be modified and distributed under the terms
-;;;; of the BSD license.  See the LICENSE file for details.
-
-;;;;   This is intended as a most literal implementation according to the
-;;;; mathematical definition of finite automata used by lexers.
-
-;;;;   The plan is to make something that takes a sort of expression mapping
-;;;; directly to piece-wise construction of regular expression NFAs (since
-;;;; regular expression grammar itself is context-free), and then convert the
-;;;; NFA to a DFA, and the DFA to a generated function that can be used as a
-;;;; scanner.
-
-;;;;   After I complete this, I want to write a parser for context free
-;;;; grammars that couples with this scanner so that I can generate
-;;;; scanner/lexer functions for regular expressions and perl-style regular
-;;;; expressions.
-
 (in-package #:lexer)
 
-;;; Buildup For Individual state 's
-
-;;   There are several classes of states across varying classes of finite
-;; automata as well as transitional sets of states while functionally mapping
-;; from one automaton to another.
-;;   This scheme with a preface and iterate allows us to have systematic naming
-;; that is still flexible.
-(defclass name ()
-  ((name :initarg :name
-	 ;:initform (format nil "~a~d" name-preface iterate)
-	 :reader name
-	 :documentation "External name for a specific state.")
-   (name-preface :initarg :name-preface
-		 :initform "q_"
-		 :reader name-preface
-		 :documentation "Naming convention for new states in series.")
-   (iterate :initarg :iterate
-	    :initform 0
-	    :reader iterate
-	    :documentation "Enumeration for each state in a series.")))
-
-;;   To initialize a state, we name the state using the name-preface
-;; and the iterate.
-(defmethod initialize-instance :after ((name-obj name)
-				       &key &allow-other-keys)
-  (with-slots (name (preface name-preface) iterate) name-obj
-    (setf name (format nil "~a~d" preface iterate))))
-
-;;   The transitions are a hashtable that associates the literal next state
-;; object with a character.
-(defclass transitions ()
-  ((transitions :initarg :transitions
-	        :initform (make-hash-table :test 'eql) ; 'eql perfect for chars.
-	        :reader transitions
-	        :documentation "Transitions from a specific state.")))
-
-;;   A state q ∈ Q in finite automata. (Note: The "iterate" slot inherited
-;; from the name class is used as the permanent enumeration for the respective
-;; series of the state class instances.)
-(defclass state (name transitions) ()
-  (:documentation "A specific state in a finite state automaton."))
-
-;;; Buildup of Finite Automata
-
-;;    Note: The "iterate" slot inherited from the name class is used to track
-;; the last state name/instance that was created as well as the "name-preface"
-;; for creating new states. I haven't figured out what to do with :initarg
-;; iterate's for making these classes of objects directly...
-
-;;   The set Q of states, however named--each state is enumerated by the integer
-;; indices of an array.
-(defclass state-names (name)
-  ((state-names :initarg :state-names
-		:initform (make-array 1
-				      :initial-element nil
-				      :adjustable t
-				      :fill-pointer 0)
-	        :reader state-names
-	        :documentation "All names for states of a finite automaton.")))
-
-;;   Push initial state name onto "state-names".
-(defmethod initialize-instance :after ((state-names-obj state-names)
-				       &key &allow-other-keys)
-  (with-slots (name state-names) state-names-obj
-    (vector-push-extend name state-names)))
-
-;;   The set Σ of input symbols.  Whatever the input symbols are, they need
-;; enumeration--however, we are going to use the built in character encoding in
-;; lisp to give us that mapping (signified by a 'cl-utf slot-value).
-(defclass alphabet ()
-  ((alphabet :initarg :alphabet
-	     :initform 'cl-utf
-	     :reader alphabet
-	     :documentation "The input alphabet, or set of input symbols.")))
-
-;;   A transition function Δ : Q × Σ → P(Q). Using the enumeration from Q we
-;; store each state object under an array, and each state contains the
-;; transitions on symbols from Σ, which gives us our function map.
-(defclass states (name)
-  ((states :initarg :states
-	   :initform (make-state-vector 1)
-	   :reader states
-	   :documentation "All states of a finite automaton.")))
-
-;;   Make initial state instance and push onto "states". 
-(defmethod initialize-instance :after ((states-instance states) &rest keys)
-  (with-slots (name-preface iterate states) states-instance
-    (vector-push-extend (apply #'make-instance 'state keys) states)))
-
-;;   The initial or starting state of the finite automata. Usually named as
-;; q_0 ∈ Q in the mathematical definition.
-(defclass init-state-name (name)
-  ((init-state-name :initarg :init-state-name
-	            ;; :initform name
-	            :reader init-state-name
-	            :documentation "Initial state of a finite automaton.")))
-
-;;   By default the first state name generated by the name-preface.
-(defmethod initialize-instance :after ((instance init-state-name)
-				       &key &allow-other-keys)
-  (with-slots (name init-state-name) instance
-    (setf init-state-name name)))
-
-;;   The set F of final or accepting states. F is an array of the same size as Q
-;; with the accepting states under the same respective indices as under Q.
-(defclass final-state-names ()
-  ((final-state-names :initarg :final-state-names
-		      :initform (make-array 1
-					    :initial-element 'nil
-					    :adjustable t
-					    :fill-pointer 1)
-
-		      :reader final-state-names
-		      :documentation "Final states of a finite automaton.")))
-
-;;   The class of Finite Automata.
-;; https://en.wikipedia.org/wiki/Automata_theory
-(defclass FA (state-names alphabet states init-state-name final-state-names) ()
-  (:documentation #.(format nil "A Finite Automaton is represented formally ~
-                                 by a 5-tuple: (Q, Σ, Δ, q_0, F).")))
-
-;;; Non-Deterministic Finite Automata
-
 ;; https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton
-(defclass NFA (FA) ()
-  (:documentation "A Nondeterministic Finite Automaton."))
+;; An NFA is represented formally by a 5-tuple, (Q, Σ, Δ, q0, F), consisting of
+;;   a finite set of states Q
+;;   a finite set of input symbols Σ
+;;   a transition function Δ : Q × Σ → P(Q).
+;;   an initial (or start) state q0 ∈ Q
+;;   a set of states F distinguished as accepting (or final) states F ⊆ Q.
 
-;;; Deterministic Finite Automata
+(defclass preface ()
+  ((preface :initarg :preface
+	    :reader preface)))
 
-;; https://en.wikipedia.org/wiki/Deterministic_finite_automaton
-(defclass DFA (FA) ()
-  (:documentation "A Deterministic Finite Automaton."))
+(defclass iterate ()
+  ((iterate :initarg :iterate
+            :reader iterate)))
 
-;;; Functions
+(defclass states-names (preface iterate)
+  ((preface :initform "q_")
+   (iterate :initform 0)))
 
-(defgeneric push-state (state collection &key &allow-other-keys)
-  (:documentation "Push state object onto automaton."))
+(defclass Q ()
+  ((Q :initarg :Q
+      :initform (make-vector 1)
+      :reader Q)))
 
-(defmethod push-state :before ((name-obj name) (state-names-obj state-names)
-			       &key &allow-other-keys)
-  (with-slots (name) name-obj
-    (with-slots (state-names) state-names-obj
-      (vector-push-extend name state-names))))
+(defclass Sigma ()
+  ((Sigma :initarg :Sigma
+	  :initform 'cl-utf
+	  :reader Sigma)))
 
-(defmethod push-state ((name-obj name) (new-state-names-obj state-names)
-		       &key &allow-other-keys)
-  new-state-names-obj) ;Simply return mutated object by :before method.
+(defclass Delta ()
+  ((Delta :initarg :Delta
+	  :initform (make-vector 1)
+	  :reader Delta)))
 
-(defmethod push-state :before ((state-obj state) (states-obj states)
-			       &key &allow-other-keys)
-  (with-slots (states) states-obj
-    (vector-push-extend state-obj states)))
+;;Q is assumed as vector--but need to know Sigma to make Delta transitions function.
+(defclass Sigma-Delta (Sigma Delta) ())
 
-(defmethod push-state ((state-obj state) (new-states-obj states)
-		       &key &allow-other-keys)
-  new-states-obj) ;Simply return mutated object by :before method.
+(defclass q_0 ()
+  ((q_0 :initarg q_0
+	:reader q_0)))
 
-(defmethod push-state :before ((name-obj name)
-			       (final-state-names-obj final-state-names)
-			  &key (final-state nil) &allow-other-keys)
-  (with-slots (name) name-obj
-    (with-slots (final-state-names) final-state-names-obj
-      (if final-state
-	  (vector-push-extend name final-state-names)
-	  (vector-push-extend 'nil final-state-names)))))
+(defclass F ()
+  ((F :initarg F
+      :initform (make-vector 1)
+      :reader F)))
 
-(defmethod push-state ((name-obj name)
-		       (final-state-names-obj final-state-names)
-		       &key &allow-other-keys)
-  final-state-names-obj) ;Simply return mutated object by :before method.
+(defclass FA (Q Sigma-Delta q_0 F states-names) ())
 
-(defgeneric make-next-state (state-reference &key &allow-other-keys)
-  (:documentation "Make a new (next) state object from a reference object."))
+(defun make-vector (size &key (initial-element nil) (adjustable t) (fill-pointer 0))
+  (make-array size
+	      :initial-element initial-element
+	      :adjustable adjustable
+	      :fill-pointer fill-pointer))
+
+(defgeneric make-Delta (Sigma-type)
+  (:documentation "Create respective character-transition map data-structure."))
+
+(defmethod make-Delta ((Sigma-type (eql 'cl-utf)))
+  (make-hash-table :test 'eql)) ;eql for cl char's
+
+(defgeneric make-state (states-names)
+  (:documentation "Name a new state from a reference class instance for a series of states."))
+	      
+(defmethod make-state ((states-names states-names))
+  (with-slots (preface iterate) states-names
+    (format nil "~a~d" preface (1- (incf iterate)))))
+
+;(defmethod initialize-instance :after ((FA FA) &key &allow-other-keys)
+;  (push-state FA FA :start-p t))
+
+(defgeneric push-state (state finite-automaton &key &allow-other-keys)
+  (:documentation "Push a state into the finite automaton."))
+
+(defmethod push-state (state (Q Q) &key &allow-other-keys)
+  (with-slots (Q) Q
+    (vector-push-extend state Q)))
+
+(defmethod push-state (state (Sigma-Delta Sigma-Delta) &key &allow-other-keys)
+  (with-slots (Sigma Delta) Sigma-Delta
+    (vector-push-extend state (make-Delta Sigma) Delta)))
+
+(defmethod push-state (state (q_0 q_0) &key (start-p nil) &allow-other-keys)
+  (with-slots (q_0) q_0
+    (when start-p
+      (setf q_0 state))))
+
+(defmethod push-state (state (F F) &key (final-p nil) &allow-other-keys)
+  (with-slots (F) F
+    (if final-p
+	(vector-push-extend state F)
+	(vector-push-extend nil F))))
+
+(defmethod push-state ((states-names states-names) (FA FA) &key
+							     (start-p nil)
+							     (final-p nil)
+		       &allow-other-keys)
+  (call-next-method (make-state states-names) FA :start-p start-p :final-p final-p))
+
+
+(defun print-FA (FA)
+  (print (Q FA))
+  (print (Sigma FA))
+  (print (Delta FA))
+  (print (q_0 FA))
+  (print (F FA))
+  nil)
 
 
