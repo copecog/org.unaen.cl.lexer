@@ -96,6 +96,16 @@
 			&key &allow-other-keys)
   (:documentation "Push a state into the finite automaton."))
 
+(defmethod push-state :around ((next (eql 'next))
+			       (FA-instance FA)
+			       &key
+				 (start-p nil)
+				 (final-p nil) &allow-other-keys)
+  (call-next-method (make-state-name (DSN FA-instance))
+		    FA-instance
+		    :start-p start-p
+		    :final-p final-p))
+
 (defmethod push-state :before (state-name
 			       (Q-instance Q)
 			       &key &allow-other-keys)
@@ -128,7 +138,11 @@
 (defmethod push-state (state
 		       (FA-instance FA)
 		       &key &allow-other-keys)
-  FA-instance) ; Return mutated FA after all said and done.
+  (with-slots (Q Delta F) FA-instance
+    (values FA-instance ; Return mutated FA after all said and done.
+	    (and (fill-pointer Q)
+		 (fill-pointer Delta)
+		 (fill-pointer F)))))
 
 (defclass NFA (FA) ()
   (:documentation "Non-deterministic Finite Automata."))
@@ -143,12 +157,22 @@
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
-				 (transit-char character) ; This method works for 'cl-utf.
+				 (transit-char character)
 				 (Q-Sigma-Delta-instance Q-Sigma-Delta)
 				 &key &allow-other-keys)
   (with-slots (Delta) Q-Sigma-Delta-instance
     (let ((Delta.state-A (aref Delta state-A)))
       (push state-B (gethash transit-char Delta.state-A nil)))))
+
+;;; I need to think how to line up these series of methods...
+(defmethod push-transit :before ((state-A integer)
+				 (state-B integer)
+				 (epsilon (eql 'epsilon))
+				 (NFA-instance NFA)
+				 &key &allow-other-keys)
+  (with-slots (Delta) NFA-instance
+    (let ((Delta.state-A (aref Delta state-A)))
+      (push state-B (gethash epsilon Delta.state-A nil)))))
 
 (defmethod push-transit (state-A
 			 state-B
@@ -186,16 +210,6 @@
 			   &key &allow-other-keys)
   Q-Sigma-Delta-instance)
 
-;;; I need to think how to line up these series of methods...
-(defmethod push-transit :before ((state-A integer)
-				 (state-B integer)
-				 (epsilon (eql 'epsilon))
-				 (NFA-instance NFA)
-				 &key &allow-other-keys)
-  (with-slots (Delta) NFA-instance
-    (let ((Delta.state-A (aref Delta state-A)))
-      (push state-B (gethash epsilon Delta.state-A nil)))))
-
 (defgeneric get-transit (state
 			 transit-char
 			 FA
@@ -203,7 +217,7 @@
   (:documentation "Get list of states to transition to on transition character."))
 
 (defmethod get-transit ((state integer)
-			(transit-char character)
+			transit-char
 			(Q-Sigma-Delta-instance Q-Sigma-Delta)
 			&key &allow-other-keys)
   (with-slots (Delta) Q-Sigma-Delta-instance
@@ -211,12 +225,64 @@
 	   (Delta.state.char (gethash transit-char Delta.state)))
       Delta.state.char)))
 
-(defmethod get-transit ((state integer)
-			(epsilon (eql 'epsilon))
-			(NFA-instance NFA)
-			&key &allow-other-keys)
-  (with-slots (Delta) NFA-instance
-    (let* ((Delta.state (aref Delta state))
-	   (Delta.state.char (gethash epsilon Delta.state)))
-      Delta.state.char)))
+(defgeneric push-fragment (fragment-type
+			   FA
+			   &key &allow-other-keys)
+  (:documentation "Push new finite state automaton fragment onto FA by type."))
+
+;; literal, epsilon, concat, or, star
+
+(defmethod push-fragment ((fragment-type (eql 'regex-literal))
+			  (NFA-instance NFA)
+			  &key
+			    transit-char
+			    (begin-state 'next)
+			    (end-state 'next) &allow-other-keys)
+  (multiple-value-bind (FA-begin frag-begin-state)
+      (push-state begin-state NFA-instance)
+    (multiple-value-bind (FA-end frag-end-state)
+	(push-state end-state FA-begin)
+      (values (push-transit frag-begin-state frag-end-state transit-char FA-end)
+	      frag-begin-state
+	      frag-end-state))))
+
+(defmethod push-fragment ((fragment-type (eql 'regex-epsilon))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next) &allow-other-keys)
+  (multiple-value-bind (FA-begin frag-begin-state)
+      (push-state begin-state NFA-instance)
+    (multiple-value-bind (FA-end frag-end-state)
+	(push-state end-state FA-begin)
+      (values (push-transit frag-begin-state frag-end-state 'epsilon FA-end)
+	      frag-begin-state
+	      frag-end-state))))
+
+(defmethod push-fragment ((fragment-type (eql 'regex-concat))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next)
+			    (state-A-in 'next)
+			    (state-A-out 'next)
+			    (state-B-in 'next)
+			    (state-B-out 'next) &allow-other-keys)
+  nil)
+
+(defmethod push-fragment ((fragment-type (eql 'regex-or))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next)
+			    (state-A-in 'next)
+			    (state-A-out 'next)
+			    (state-B-in 'next)
+			    (state-B-out 'next) &allow-other-keys)
+  nil)
+
+(defmethod push-fragment ((fragment-type (eql 'regex-star))
+			  (NFA-instance NFA)
+			  &key
+
 
