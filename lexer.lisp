@@ -60,6 +60,14 @@
 	:documentation "_D_efault _S_tates _N_ames."))
   (:documentation "An FA is represented formally by a 5-tuple, (Q, Σ, Δ, q0, F)."))
 
+(defun print-FA (FA)
+  (print (Q FA))
+  (print (Sigma FA))
+  (print (Delta FA))
+  (print (q_0 FA))
+  (print (F FA))
+  nil)
+
 (defun make-state-vector (size &key (initial-element nil) (adjustable t) (fill-pointer 0))
   (make-array size
 	      :initial-element initial-element
@@ -83,55 +91,132 @@
 				       &key &allow-other-keys)
   (push-state (make-state-name (DSN FA-instance)) FA-instance :start-p t))
 
-(defgeneric push-state (state-name finite-automaton
+(defgeneric push-state (state-name
+			finite-automaton
 			&key &allow-other-keys)
   (:documentation "Push a state into the finite automaton."))
 
-(defmethod push-state :before (state-name (Q-instance Q)
+(defmethod push-state :before (state-name
+			       (Q-instance Q)
 			       &key &allow-other-keys)
-  (with-slots (Q-slot) Q-instance
-    (vector-push-extend state-name Q-slot))) ; Push our state-name onto our vector of state names.
+  (with-slots (Q) Q-instance
+    (vector-push-extend state-name Q))) ; Push our state-name onto our vector of state names.
 
-(defmethod push-state :before (state-name (Q-Sigma-Delta-instance Q-Sigma-Delta)
+(defmethod push-state :before (state-name
+			       (Q-Sigma-Delta-instance Q-Sigma-Delta)
 			       &key &allow-other-keys)
-  (with-slots (Sigma-slot Delta-slot) Q-Sigma-Delta-instance
-    (vector-push-extend (make-Delta Sigma-slot) Delta-slot))) ; Extend Delta for state-name.
+  (with-slots (Sigma Delta) Q-Sigma-Delta-instance
+    (vector-push-extend (make-Delta Sigma) Delta))) ; Extend Delta for state-name.
 
-(defmethod push-state :before (state-name (Q-q_0-instance Q-q_0)
-			       &key (start-p nil) &allow-other-keys)
-  (with-slots (q_0-slot) Q-q_0-instance
+(defmethod push-state :before (state-name
+			       (Q-q_0-instance Q-q_0)
+			       &key
+				 (start-p nil) &allow-other-keys)
+  (with-slots (q_0) Q-q_0-instance
     (when start-p
-      (setf q_0-slot state-name)))) ; If start state then set as start state.
+      (setf q_0 state-name)))) ; If start state then set as start state.
 
-(defmethod push-state :before (state-name (Q-F-instance Q-F)
-			       &key (final-p nil) &allow-other-keys)
-  (with-slots (F-slot) Q-F-instance
+(defmethod push-state :before (state-name
+			       (Q-F-instance Q-F)
+			       &key
+				 (final-p nil) &allow-other-keys)
+  (with-slots (F) Q-F-instance
     (if final-p
-	(vector-push-extend state-name F-slot) ;   Either it is a final state
-	(vector-push-extend nil F-slot))))     ; or it is not - so empty space instead.
+	(vector-push-extend state-name F) ;   Either it is a final state
+	(vector-push-extend nil F))))     ; or it is not - so empty space instead.
 
-(defmethod push-state (state (FA-instance FA) &key &allow-other-keys)
+(defmethod push-state (state
+		       (FA-instance FA)
+		       &key &allow-other-keys)
   FA-instance) ; Return mutated FA after all said and done.
 
 (defclass NFA (FA) ()
   (:documentation "Non-deterministic Finite Automata."))
 
 ;; The notion of pushing it into the object rather than onto a stack.
-(defgeneric push-transit (state-A state-B transit-char FA &key &allow-other-keys)
-  (:documentation "Push a single transition on trans-char from state-A to state-B in finite automaton."))
+(defgeneric push-transit (state-A
+			  state-B
+			  transit-char
+			  FA
+			  &key &allow-other-keys)
+  (:documentation "Push a single transition on transit-char from state-A to state-B in FA."))
 
-(defmethod push-transit ((state-A integer) (state-B integer) transit-char (Delta Q-Sigma-Delta)
+(defmethod push-transit :before ((state-A integer)
+				 (state-B integer)
+				 (transit-char character) ; This method works for 'cl-utf.
+				 (Q-Sigma-Delta-instance Q-Sigma-Delta)
+				 &key &allow-other-keys)
+  (with-slots (Delta) Q-Sigma-Delta-instance
+    (let ((Delta.state-A (aref Delta state-A)))
+      (push state-B (gethash transit-char Delta.state-A nil)))))
+
+(defmethod push-transit (state-A
+			 state-B
+			 transit-char
+			 (Q-Sigma-Delta-instance Q-Sigma-Delta)
 			 &key &allow-other-keys)
-  (with-slots (
+  Q-Sigma-Delta-instance)
 
+(defgeneric delete-transit (state-A
+			    state-B
+			    transit-char
+			    FA
+			    &key &allow-other-keys)
+  (:documentation "Remove a transition on transit-char from state-A to state-B in FA."))
 
+(defmethod delete-transit :before ((state-A integer)
+				   (state-B integer)
+				   transit-char
+				   (Q-Sigma-Delta-instance Q-Sigma-Delta)
+				   &key &allow-other-keys)
+  (with-slots (Delta) Q-Sigma-Delta-instance
+    (let* ((Delta.state-A (aref Delta state-A))
+           (Delta.state-A.char (gethash transit-char Delta.state-A)))
+      (if Delta.state-A.char
+	(let ((Delta.state-A.char.no-state-B (delete state-B Delta.state-A.char)))
+	  (if Delta.state-A.char.no-state-B
+	      (setf (gethash transit-char Delta.state-A) Delta.state-A.char.no-state-B)
+	      (remhash transit-char Delta.state-A)))
+	(remhash transit-char Delta.state-A)))))
 
+(defmethod delete-transit (state-A
+			   state-B
+			   transit-char
+			   (Q-Sigma-Delta-instance Q-Sigma-Delta)
+			   &key &allow-other-keys)
+  Q-Sigma-Delta-instance)
 
+;;; I need to think how to line up these series of methods...
+(defmethod push-transit :before ((state-A integer)
+				 (state-B integer)
+				 (epsilon (eql 'epsilon))
+				 (NFA-instance NFA)
+				 &key &allow-other-keys)
+  (with-slots (Delta) NFA-instance
+    (let ((Delta.state-A (aref Delta state-A)))
+      (push state-B (gethash epsilon Delta.state-A nil)))))
 
-(defun print-FA (FA)
-  (print (Q FA))
-  (print (Sigma FA))
-  (print (Delta FA))
-  (print (q_0 FA))
-  (print (F FA))
-  nil)
+(defgeneric get-transit (state
+			 transit-char
+			 FA
+			 &key &allow-other-keys)
+  (:documentation "Get list of states to transition to on transition character."))
+
+(defmethod get-transit ((state integer)
+			(transit-char character)
+			(Q-Sigma-Delta-instance Q-Sigma-Delta)
+			&key &allow-other-keys)
+  (with-slots (Delta) Q-Sigma-Delta-instance
+    (let* ((Delta.state (aref Delta state))
+	   (Delta.state.char (gethash transit-char Delta.state)))
+      Delta.state.char)))
+
+(defmethod get-transit ((state integer)
+			(epsilon (eql 'epsilon))
+			(NFA-instance NFA)
+			&key &allow-other-keys)
+  (with-slots (Delta) NFA-instance
+    (let* ((Delta.state (aref Delta state))
+	   (Delta.state.char (gethash epsilon Delta.state)))
+      Delta.state.char)))
+
