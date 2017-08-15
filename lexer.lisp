@@ -284,5 +284,8 @@
 (defmethod push-fragment ((fragment-type (eql 'regex-star))
 			  (NFA-instance NFA)
 			  &key
-
+			    (begin-state 'next)
+			    (state-A-in 'next)
+			    (state-A-out 'next) &allow-other-keys)
+  nil)
 
