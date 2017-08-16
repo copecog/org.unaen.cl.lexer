@@ -306,8 +306,8 @@
 			 :end-state end-state)
 	(values |NFA+begin+A-in+A-out+B-in+B-out+end| pushed-begin pushed-end)))))
       
-;; [begin] --epsilon-->[A-in] [A-out]--epsilon-->
-;;         --epsilon-->[B-in] [B-out]--epsilon--> [end]
+;; begin[epsilon] -->A-in A-out[epsilon]--> ||
+;;      ||        -->B-in B-out[epsilon]--> end
 (defmethod push-fragment ((fragment-type (eql 'regex-or))
 			  (NFA-inst NFA)
 			  &key
@@ -316,15 +316,57 @@
 			    (state-A-in 'next)
 			    (state-A-out 'next)
 			    (state-B-in 'next)
-			    (state-B-out 'next) &allow-other-keys)
-  nil)
+			    (state-B-out 'next)
+			  &allow-other-keys)
+  (multiple-value-bind (|NFA+begin+A-in| pushed-begin pushed-A-in)
+      ;; begin[epsilon]-->A-in
+      (push-fragment 'regex-epsilon
+		     NFA-inst
+		     :begin-state begin-state
+		     :end-state state-A-in)
+    (multiple-value-bind (|NFA+begin+A-in+B-in| pushed-begin-2 pushed-B-in)
+	;; begin[epsilon]-->B-in
+	(push-fragment 'regex-epsilon
+		       |NFA+begin+A-in|
+		       :begin-state pushed-begin
+		       :end-state state-B-in)
+      (multiple-value-bind (|NFA+begin+A-in+B-in+A-out+end| pushed-A-out pushed-end)
+	  ;; A-out[epsilon]-->end
+	  (push-fragment 'regex-epsilon
+			 |NFA+begin+A-in+B-in|
+			 :begin-state state-A-out
+			 :end-state end-state)
+	(multiple-value-bind (|NFA+begin+A-in+B-in+A-out+end+B-out| pushed-B-out pushed-end-2)
+	    ;; B-out[epsilon]-->end
+	    (push-fragment 'regex-epsilon
+			   |NFA+begin+A-in+B-in+A-out+end|
+			   :begin-state state-B-out
+			   :end-state pushed-end) 
+	  (values |NFA+begin+A-in+B-in+A-out+end+B-out| pushed-begin-2 pushed-end-2))))))
 
-;; [begin]--epsilon-->[A-in] [A-out]--epsilon-->[begin]
+;; begin*[epsilon]-->A-in A-out[epsilon]-->begin*
 (defmethod push-fragment ((fragment-type (eql 'regex-star))
 			  (NFA-inst NFA)
 			  &key
 			    (begin-state 'next)
 			    (state-A-in 'next)
-			    (state-A-out 'next) &allow-other-keys)
-  nil)
+			    (state-A-out 'next)
+			  &allow-other-keys)
+  (multiple-value-bind (|NFA+begin+A-in| pushed-begin pushed-A-in)
+      ;; begin*[epsilon]-->A-in
+      (push-fragment 'regex-epsilon
+		     NFA-inst
+		     :begin-state begin-state
+		     :end-state state-A-in)
+    (multiple-value-bind (|NFA+begin+A-in+A-out| pushed-A-out pushed-begin-2)
+	;; A-out[epsilon]-->begin*
+	(push-fragment 'regex-epsilon
+		       |NFA+begin+A-in|
+		       :begin-state pushed-A-out
+		       :end-state pushed-begin-2)
+      (values |NFA+begin+A-in+A-out| pushed-begin-2 pushed-begin-2))))
+		       
+		       
+		       
+		       
 
