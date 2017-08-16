@@ -38,7 +38,7 @@
 (defgeneric make-state-name (states-names)
   (:documentation "Name a new state from a reference class instance for a series of states."))
 
-(defgeneric push-state (state-name finite-automaton &key &allow-other-keys)
+(defgeneric push-state (state finite-automaton &key &allow-other-keys)
   (:documentation "Push a state into the finite automaton."))
 
 (defgeneric push-state-next (finite-automata &key &allow-other-keys)
@@ -143,40 +143,47 @@
   (with-slots (preface iterate) states-names-inst
     (format nil "~a~d" preface (1- (incf iterate)))))
 
-(defmethod push-state :around ((next (eql 'next)) (FA-inst FA) &key (start-p nil) (final-p nil)
+(defmethod push-state ((next (eql 'next)) (FA-inst FA) &key (start-p nil) (final-p nil)
 			       &allow-other-keys)
-  (call-next-method (make-state-name (DSN FA-inst))
-		    FA-inst
-		    :start-p start-p
-		    :final-p final-p))
+  (push-state (make-state-name (DSN FA-inst))
+	      FA-inst
+	      :start-p start-p
+	      :final-p final-p))
+
+(defmethod push-state ((state integer) (FA-inst FA) &key (start-p nil) (final-p nil)
+		       &allow-other-keys)
+  (with-slots (Q) FA-inst
+    (if (<= state (fill-pointer Q))
+	(values FA-inst state)
+	(values FA-inst nil))))
 
 ;; All the :before methods I use to organize the assigns for the single push-state operation.
 
-(defmethod push-state :before (state-name (Q-inst Q) &key &allow-other-keys)
+(defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
   (with-slots (Q) Q-inst
     (vector-push-extend state-name Q))) ; Push our state-name onto our vector of state names.
 
-(defmethod push-state :before (state-name (Delta-inst Delta) &key &allow-other-keys)
+(defmethod push-state :before ((state-name string) (Delta-inst Delta) &key &allow-other-keys)
   (with-slots (Sigma Delta) Delta-inst
     (vector-push-extend (make-Delta Sigma) Delta))) ; Extend Delta for state-name.
 
-(defmethod push-state :before (state-name (q_0-inst q_0) &key (start-p nil) &allow-other-keys)
+(defmethod push-state :before ((state-name string) (q_0-inst q_0) &key (start-p nil) &allow-other-keys)
   (with-slots (q_0) q_0-inst
     (when start-p
       (setf q_0 state-name)))) ; If start state then set as start state.
 
-(defmethod push-state :before (state-name (F-inst F) &key (final-p nil) &allow-other-keys)
+(defmethod push-state :before ((state-name string) (F-inst F) &key (final-p nil) &allow-other-keys)
   (with-slots (F) F-inst
     (if final-p
 	(vector-push-extend state-name F) ;   Either it is a final state
 	(vector-push-extend nil F))))     ; or it is not - so empty space instead.
 
-(defmethod push-state (state (FA-inst FA) &key &allow-other-keys)
+(defmethod push-state ((state-name string) (FA-inst FA) &key &allow-other-keys)
   (with-slots (Q Delta F) FA-inst
-    (values FA-inst                   ; Return mutated FA after all said and done
-	    (and (fill-pointer Q)
-		 (fill-pointer Delta)
-		 (fill-pointer F))))) ; and the next state (or current number of states).
+    (values FA-inst                        ; Return mutated FA after all said and done
+	    (1- (and (fill-pointer Q)
+		     (fill-pointer Delta)
+		     (fill-pointer F)))))) ; as well as the state number.
 
 (defmethod push-state-next ((FA-inst FA) &key (start-p nil) (final-p nil) &allow-other-keys)
   (push-state (make-state-name (DSN FA-inst))
