@@ -24,7 +24,7 @@
 
 
 ;;; Perpendicular Utility Stuffs
-(defun make-states-vector (size &key (initial-element nil) (adjustable t) (fill-pointer 0))
+(defun make-state-vector (size &key (initial-element nil) (adjustable t) (fill-pointer 0))
   (make-array size
 	      :initial-element initial-element
 	      :adjustable adjustable
@@ -32,30 +32,30 @@
 
 
 ;;; Generic Function Prototypes
-(defgeneric make-Delta (Sigma-type)
+(defgeneric make-Δ (Σ-type)
   (:documentation "Create respective character-transition map data-structure."))
 
-(defgeneric make-state-name (states-names)
+(defgeneric make-state-name (state-names)
   (:documentation "Name a new state from a reference class instance for a series of states."))
 
 (defgeneric push-state (state finite-automaton &key &allow-other-keys)
   (:documentation "Push a state into the finite automaton."))
 
 (defgeneric push-state-next (finite-automata &key &allow-other-keys)
-  (:documentation "Push the next implied by states-names under FA."))
+  (:documentation "Push the next implied by state-names under finite-automata."))
 
 ;; The notion of pushing it into the object rather than onto a stack.
-(defgeneric push-transit (state-A state-B transit-char FA &key &allow-other-keys)
-  (:documentation "Push a single transition on transit-char from state-A to state-B in FA."))
+(defgeneric push-transit (state-A state-B transit-char finite-automata &key &allow-other-keys)
+  (:documentation "Push a single transition on transit-char from state-A to state-B in finite-automata."))
 
-(defgeneric delete-transit (state-A state-B transit-char FA &key &allow-other-keys)
-  (:documentation "Remove a transition on transit-char from state-A to state-B in FA."))
+(defgeneric delete-transit (state-A state-B transit-char finite-automata &key &allow-other-keys)
+  (:documentation "Remove a transition on transit-char from state-A to state-B in finite-automata."))
 
-(defgeneric get-transit (state transit-char FA &key &allow-other-keys)
+(defgeneric get-transit (state transit-char finite-automata &key &allow-other-keys)
   (:documentation "Get list of states to transition to on transition character."))
 
-(defgeneric push-fragment (fragment-type FA &key &allow-other-keys)
-  (:documentation "Push new finite state automaton fragment onto FA by type."))
+(defgeneric push-fragment (fragment-type finite-automata &key &allow-other-keys)
+  (:documentation "Push new finite state automaton fragment onto finite-automata by type."))
 
 
 ;;; Class Definitions
@@ -65,7 +65,7 @@
 ;; from one automaton to another.
 ;;   This scheme with a preface and iterate allows us to have systematic naming
 ;; that is still flexible.
-(defclass states-names ()
+(defclass state-names ()
   ((preface :initarg :preface
 	    :initform "q_"
 	    :reader preface)
@@ -78,175 +78,174 @@
 ;; indices of an array.
 (defclass Q ()
   ((Q :initarg :Q
-      :initform (make-states-vector 1)
+      :initform (make-state-vector 1)
       :reader Q
       :documentation "A finite set of states Q.")))
 
 ;;   The set Σ of input symbols.  Whatever the input symbols are, they need
 ;; enumeration--however, we are going to use the built in character encoding in
 ;; lisp to give us that mapping (signified by a 'cl-utf slot-value).
-(defclass Sigma ()
-  ((Sigma :initarg :Sigma
+(defclass Σ ()
+  ((Σ :initarg :Σ
 	  :initform 'cl-utf
-	  :reader Sigma
+	  :reader Σ
 	  :documentation "A finite set of input symbols Σ.")))
 
 ;;   A transition function Δ : Q × Σ → P(Q). Using the enumeration from Q we
 ;; store each state object under an array, and each state contains the
 ;; transitions on symbols from Σ, which gives us our function map.
-(defclass Delta ()
-  ((Delta :initarg :Delta
-	  :initform (make-states-vector 1)
-	  :reader Delta
+(defclass Δ ()
+  ((Δ :initarg :Δ
+	  :initform (make-state-vector 1)
+	  :reader Δ
 	  :documentation "A transition function Δ : Q × Σ → P(Q).")))
 
 ;;   The initial or starting state of the finite automata. Usually named as
-;; q_0 ∈ Q in the mathematical definition.
-(defclass q_0 ()
-  ((q_0 :initarg :q_0
-	:reader q_0
-	:documentation "An initial (or start) state q_0 ∈ Q.")))
+;; q₀ ∈ Q in the mathematical definition.
+(defclass q₀ ()
+  ((q₀ :initarg :q₀
+	:reader q₀
+	:documentation "An initial (or start) state q₀ ∈ Q.")))
 
 ;;   The set F of final or accepting states. F is an array of the same size as Q
 ;; with the accepting states under the same respective indices as under Q.
 (defclass F ()
   ((F :initarg :F
-      :initform (make-states-vector 1)
+      :initform (make-state-vector 1)
       :reader F
       :documentation "A set of states F distinguished as accepting (or final) states F ⊆ Q.")))
 
-(defclass FA (Q Sigma Delta q_0 F)
-  ((DSN :initarg DSN
-	:initform (make-instance 'states-names)
-	:reader DSN
-	:documentation "_D_efault _S_tates _N_ames."))
-  (:documentation "An FA is represented formally by a 5-tuple, (Q, Σ, Δ, q0, F)."))
+(defclass finite-automata (Q Σ Δ q₀ F)
+  ((dsn :initarg dsn
+	:initform (make-instance 'state-names)
+	:reader dsn
+	:documentation "_D_efault _S_tate _N_ames."))
+  (:documentation "An finite automata is represented formally by a 5-tuple, (Q, Σ, Δ, q0, F)."))
 
 ;; https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton
-(defclass NFA (FA) ()
-  (:documentation "Non-deterministic Finite Automata."))
-
+(defclass nondeterministic-finite-automata (finite-automata) ()
+  (:documentation "Nondeterministic Finite Automata."))
 
 ;;; Method Definitions
 ;;   By default the first state name generated by the name-preface.
-(defmethod initialize-instance :after ((FA-inst FA) &key &allow-other-keys)
-  (push-state 'next FA-inst :start-p t))
+(defmethod initialize-instance :after ((finite-automata-instance finite-automata) &key &allow-other-keys)
+  (push-state 'next finite-automata-instance :start-p t))
 
 ;;   The transitions are a hashtable that associates the literal next state
 ;; object with a character.
-(defmethod make-Delta ((Sigma-type (eql 'cl-utf)))
+(defmethod make-Δ ((Σ-type (eql 'cl-utf)))
   (make-hash-table :test 'eql)) ;eql for cl char's
 
 ;;   To initialize a state, we name the state using the name-preface
 ;; and the iterate.
-(defmethod make-state-name ((states-names-inst states-names))
-  (with-slots (preface iterate) states-names-inst
+(defmethod make-state-name ((state-names-instance state-names))
+  (with-slots (preface iterate) state-names-instance
     (format nil "~a~d" preface (1- (incf iterate)))))
 
-(defmethod push-state ((next (eql 'next)) (FA-inst FA) &key (start-p nil) (final-p nil)
+(defmethod push-state ((next (eql 'next)) (finite-automata-instance finite-automata) &key (start-p nil) (final-p nil)
 			       &allow-other-keys)
-  (push-state (make-state-name (DSN FA-inst))
-	      FA-inst
+  (push-state (make-state-name (dsn finite-automata-instance))
+	      finite-automata-instance
 	      :start-p start-p
 	      :final-p final-p))
 
-(defmethod push-state ((state integer) (FA-inst FA) &key (start-p nil) (final-p nil)
+(defmethod push-state ((state integer) (finite-automata-instance finite-automata) &key (start-p nil) (final-p nil)
 		       &allow-other-keys)
-  (with-slots (Q) FA-inst
+  (with-slots (Q) finite-automata-instance
     (if (<= state (fill-pointer Q))
-	(values FA-inst state)
-	(values FA-inst nil))))
+	(values finite-automata-instance state)
+	(values finite-automata-instance nil))))
 
 ;; All the :before methods I use to organize the assigns for the single push-state operation.
 
-(defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
-  (with-slots (Q) Q-inst
+(defmethod push-state :before ((state-name string) (Q-instance Q) &key &allow-other-keys)
+  (with-slots (Q) Q-instance
     (vector-push-extend state-name Q))) ; Push our state-name onto our vector of state names.
 
-(defmethod push-state :before ((state-name string) (Delta-inst Delta) &key &allow-other-keys)
-  (with-slots (Sigma Delta) Delta-inst
-    (vector-push-extend (make-Delta Sigma) Delta))) ; Extend Delta for state-name.
+(defmethod push-state :before ((state-name string) (Δ-instance Δ) &key &allow-other-keys)
+  (with-slots (Σ Δ) Δ-instance
+    (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
 
-(defmethod push-state :before ((state-name string) (q_0-inst q_0) &key (start-p nil) &allow-other-keys)
-  (with-slots (q_0) q_0-inst
+(defmethod push-state :before ((state-name string) (q₀-instance q₀) &key (start-p nil) &allow-other-keys)
+  (with-slots (q₀) q₀-instance
     (when start-p
-      (setf q_0 state-name)))) ; If start state then set as start state.
+      (setf q₀ state-name)))) ; If start state then set as start state.
 
-(defmethod push-state :before ((state-name string) (F-inst F) &key (final-p nil) &allow-other-keys)
-  (with-slots (F) F-inst
+(defmethod push-state :before ((state-name string) (F-instance F) &key (final-p nil) &allow-other-keys)
+  (with-slots (F) F-instance
     (if final-p
 	(vector-push-extend state-name F) ;   Either it is a final state
-	(vector-push-extend nil F))))     ; or it is not - so empty space instead.
+	(vector-push-extend nil F))))     ; or it is not - so empty space instanceead.
 
-(defmethod push-state ((state-name string) (FA-inst FA) &key &allow-other-keys)
-  (with-slots (Q Delta F) FA-inst
-    (values FA-inst                        ; Return mutated FA after all said and done
+(defmethod push-state ((state-name string) (finite-automata-instance finite-automata) &key &allow-other-keys)
+  (with-slots (Q Δ F) finite-automata-instance
+    (values finite-automata-instance                        ; Return mutated finite-automata after all said and done...
 	    (1- (and (fill-pointer Q)
-		     (fill-pointer Delta)
-		     (fill-pointer F)))))) ; as well as the state number.
+		     (fill-pointer Δ)      ; (and quick consistency check)
+		     (fill-pointer F)))))) ; ...as well as the state number.
 
-(defmethod push-state-next ((FA-inst FA) &key (start-p nil) (final-p nil) &allow-other-keys)
-  (push-state (make-state-name (DSN FA-inst))
-		               FA-inst
+(defmethod push-state-next ((finite-automata-instance finite-automata) &key (start-p nil) (final-p nil) &allow-other-keys)
+  (push-state (make-state-name (dsn finite-automata-instance))
+		               finite-automata-instance
 		               :start-p start-p
 		               :final-p final-p))
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (transit-char character)
-				 (Delta-inst Delta)
+				 (Δ-instance Δ)
 				 &key &allow-other-keys)
-  (with-slots (Delta) Delta-inst
-    (let ((Delta.state-A (aref Delta state-A)))
-      (push state-B (gethash transit-char Delta.state-A nil)))))
+  (with-slots (Δ) Δ-instance
+    (let ((Δ.state-A (aref Δ state-A)))
+      (push state-B (gethash transit-char Δ.state-A nil)))))
 
 ;;; I need to think how to line up these series of methods...
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (epsilon (eql 'epsilon))
-				 (NFA-inst NFA)
+				 (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 				 &key &allow-other-keys)
-  (with-slots (Delta) NFA-inst
-    (let ((Delta.state-A (aref Delta state-A)))
-      (push state-B (gethash epsilon Delta.state-A nil)))))
+  (with-slots (Δ) nondeterministic-finite-automata-instance
+    (let ((Δ.state-A (aref Δ state-A)))
+      (push state-B (gethash epsilon Δ.state-A nil)))))
 
 (defmethod push-transit (state-A
 			 state-B
 			 transit-char
-			 (FA-inst FA)
+			 (finite-automata-instance finite-automata)
 			 &key &allow-other-keys)
-  FA-inst)
+  finite-automata-instance)
 
 (defmethod delete-transit :before ((state-A integer)
 				   (state-B integer)
 				   transit-char
-				   (Delta-inst Delta)
+				   (Δ-instance Δ)
 				   &key &allow-other-keys)
-  (with-slots (Delta) Delta-inst
-    (let* ((Delta.state-A (aref Delta state-A))
-           (Delta.state-A.char (gethash transit-char Delta.state-A)))
-      (if Delta.state-A.char
-	(let ((Delta.state-A.char.no-state-B (delete state-B Delta.state-A.char)))
-	  (if Delta.state-A.char.no-state-B
-	      (setf (gethash transit-char Delta.state-A) Delta.state-A.char.no-state-B)
-	      (remhash transit-char Delta.state-A)))
-	(remhash transit-char Delta.state-A)))))
+  (with-slots (Δ) Δ-instance
+    (let* ((Δ.state-A (aref Δ state-A))
+           (Δ.state-A.char (gethash transit-char Δ.state-A)))
+      (if Δ.state-A.char
+	(let ((Δ.state-A.char.no-state-B (delete state-B Δ.state-A.char)))
+	  (if Δ.state-A.char.no-state-B
+	      (setf (gethash transit-char Δ.state-A) Δ.state-A.char.no-state-B)
+	      (remhash transit-char Δ.state-A)))
+	(remhash transit-char Δ.state-A)))))
 
 (defmethod delete-transit (state-A
 			   state-B
 			   transit-char
-			   (FA-inst FA)
+			   (finite-automata-instance finite-automata)
 			   &key &allow-other-keys)
-  FA-inst)
+  finite-automata-instance)
 
 (defmethod get-transit ((state integer)
 			transit-char
-			(Delta-inst Delta)
+			(Δ-instance Δ)
 			&key &allow-other-keys)
-  (with-slots (Delta) Delta-inst
-    (let* ((Delta.state (aref Delta state))
-	   (Delta.state.char (gethash transit-char Delta.state)))
-      Delta.state.char)))
+  (with-slots (Δ) Δ-instance
+    (let* ((Δ.state (aref Δ state))
+	   (Δ.state.char (gethash transit-char Δ.state)))
+      Δ.state.char)))
 
 
 ;;;   This recursive generic function is my initial way of organizing the problem and will probably
@@ -255,36 +254,39 @@
 
 ;; begin-state[transit-char]-->end-state
 (defmethod push-fragment ((fragment-type (eql 'regex-literal))
-			  (NFA-inst NFA)
+			  (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 			  &key
 			    transit-char
 			    (begin-state 'next)
 			    (end-state 'next)
 			  &allow-other-keys)
-  (multiple-value-bind (|NFA+begin| pushed-begin)
-      (push-state begin-state NFA-inst)
-    (multiple-value-bind (|NFA+begin+end| pushed-end)
-	(push-state end-state |NFA+begin|)
-      (values (push-transit pushed-begin pushed-end transit-char |NFA+begin+end|)
-	      pushed-begin
-	      pushed-end))))
+  (multiple-value-bind (nondeterministic-finite-automata-instance begin-state)
+      (push-state begin-state nondeterministic-finite-automata-instance)
+    (multiple-value-bind (nondeterministic-finite-automata-instance end-state)
+	(push-state end-state nondeterministic-finite-automata-instance)
+      (values (push-transit begin-state
+			    end-state
+			    transit-char
+			    nondeterministic-finite-automata-instance)
+	      begin-state
+	      end-state))))
 
 ;; begin-state[epsilon]-->end-state
 (defmethod push-fragment ((fragment-type (eql 'regex-epsilon))
-			  (NFA-inst NFA)
+			  (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 			  &key
 			    (begin-state 'next)
 			    (end-state 'next)
 			  &allow-other-keys)
   (push-fragment 'regex-literal
-		 NFA-inst
+		 nondeterministic-finite-automata-instance
 		 :transit-char 'epsilon
 		 :begin-state begin-state
 		 :end-state end-state))
 
 ;; begin[epsilon]-->A-in + A-out[epsilon]-->B-in + B-out[epsilon]-->end
 (defmethod push-fragment ((fragment-type (eql 'regex-concat))
-			  (NFA-inst NFA)
+			  (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 			  &key
 			    (begin-state 'next)
 			    (end-state 'next)
@@ -293,30 +295,30 @@
 			    (state-B-in 'next)
 			    (state-B-out 'next)
 			  &allow-other-keys)
-  (multiple-value-bind (|NFA+begin+A-in| pushed-begin pushed-A-in)
+  (multiple-value-bind (nondeterministic-finite-automata-instance begin-state state-A-in)
       ;; begin[epsilon]-->A-in
       (push-fragment 'regex-epsilon
-		     NFA-inst
+		     nondeterministic-finite-automata-instance
 		     :begin-state begin-state
 		     :end-state state-A-in)
-    (multiple-value-bind (|NFA+begin+A-in+A-out+B-in| pushed-A-out pushed-B-in)
+    (multiple-value-bind (nondeterministic-finite-automata-instance state-A-out state-B-in)
 	;; A-out[epsilon]-->B-in
 	(push-fragment 'regex-epsilon
-		       |NFA+begin+A-in|
+		       nondeterministic-finite-automata-instance
 		       :begin-state state-A-out
 		       :end-state state-B-in)
-      (multiple-value-bind (|NFA+begin+A-in+A-out+B-in+B-out+end| pushed-B-out pushed-end)
+      (multiple-value-bind (nondeterministic-finite-automata-instance state-B-out end-state)
 	  ;; B-out[epsilon]-->end
 	  (push-fragment 'regex-epsilon
-	         	 |NFA+begin+A-in+A-out+B-in|
+	         	 nondeterministic-finite-automata-instance
 			 :begin-state state-B-out
 			 :end-state end-state)
-	(values |NFA+begin+A-in+A-out+B-in+B-out+end| pushed-begin pushed-end)))))
+	(values nondeterministic-finite-automata-instance begin-state end-state)))))
       
 ;; begin[epsilon] -->A-in A-out[epsilon]--> ||
 ;;      ||        -->B-in B-out[epsilon]--> end
 (defmethod push-fragment ((fragment-type (eql 'regex-or))
-			  (NFA-inst NFA)
+			  (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 			  &key
 			    (begin-state 'next)
 			    (end-state 'next)
@@ -325,55 +327,50 @@
 			    (state-B-in 'next)
 			    (state-B-out 'next)
 			  &allow-other-keys)
-  (multiple-value-bind (|NFA+begin+A-in| pushed-begin pushed-A-in)
+  (multiple-value-bind (nondeterministic-finite-automata-instance begin-state state-A-in)
       ;; begin[epsilon]-->A-in
       (push-fragment 'regex-epsilon
-		     NFA-inst
+		     nondeterministic-finite-automata-instance
 		     :begin-state begin-state
 		     :end-state state-A-in)
-    (multiple-value-bind (|NFA+begin+A-in+B-in| pushed-begin-2 pushed-B-in)
+    (multiple-value-bind (nondeterministic-finite-automata-instance begin-state state-B-in)
 	;; begin[epsilon]-->B-in
 	(push-fragment 'regex-epsilon
-		       |NFA+begin+A-in|
-		       :begin-state pushed-begin
+		       nondeterministic-finite-automata-instance
+		       :begin-state begin-state
 		       :end-state state-B-in)
-      (multiple-value-bind (|NFA+begin+A-in+B-in+A-out+end| pushed-A-out pushed-end)
+      (multiple-value-bind (nondeterministic-finite-automata-instance state-A-out end-state)
 	  ;; A-out[epsilon]-->end
 	  (push-fragment 'regex-epsilon
-			 |NFA+begin+A-in+B-in|
+			 nondeterministic-finite-automata-instance
 			 :begin-state state-A-out
 			 :end-state end-state)
-	(multiple-value-bind (|NFA+begin+A-in+B-in+A-out+end+B-out| pushed-B-out pushed-end-2)
+	(multiple-value-bind (nondeterministic-finite-automata-instance state-B-out end-state)
 	    ;; B-out[epsilon]-->end
 	    (push-fragment 'regex-epsilon
-			   |NFA+begin+A-in+B-in+A-out+end|
+			   nondeterministic-finite-automata-instance
 			   :begin-state state-B-out
-			   :end-state pushed-end) 
-	  (values |NFA+begin+A-in+B-in+A-out+end+B-out| pushed-begin-2 pushed-end-2))))))
+			   :end-state end-state) 
+	  (values nondeterministic-finite-automata-instance begin-state end-state))))))
 
 ;; begin*[epsilon]-->A-in A-out[epsilon]-->begin*
 (defmethod push-fragment ((fragment-type (eql 'regex-star))
-			  (NFA-inst NFA)
+			  (nondeterministic-finite-automata-instance nondeterministic-finite-automata)
 			  &key
 			    (begin-state 'next)
 			    (state-A-in 'next)
 			    (state-A-out 'next)
 			  &allow-other-keys)
-  (multiple-value-bind (|NFA+begin+A-in| pushed-begin pushed-A-in)
+  (multiple-value-bind (nondeterministic-finite-automata-instance begin-state state-A-in)
       ;; begin*[epsilon]-->A-in
       (push-fragment 'regex-epsilon
-		     NFA-inst
+		     nondeterministic-finite-automata-instance
 		     :begin-state begin-state
 		     :end-state state-A-in)
-    (multiple-value-bind (|NFA+begin+A-in+A-out| pushed-A-out pushed-begin-2)
+    (multiple-value-bind (nondeterministic-finite-automata-instance state-A-out begin-state)
 	;; A-out[epsilon]-->begin*
 	(push-fragment 'regex-epsilon
-		       |NFA+begin+A-in|
-		       :begin-state pushed-A-out
-		       :end-state pushed-begin-2)
-      (values |NFA+begin+A-in+A-out| pushed-begin-2 pushed-begin-2))))
-		       
-		       
-		       
-		       
-
+		       nondeterministic-finite-automata-instance
+		       :begin-state state-A-out
+		       :end-state begin-state)
+      (values nondeterministic-finite-automata-instance begin-state begin-state))))
