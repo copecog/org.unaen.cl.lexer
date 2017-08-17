@@ -192,6 +192,7 @@
 		               :start-p start-p
 		               :final-p final-p))
 
+;;; I don't like how the work for push-transit is organized...
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (transit-char character)
@@ -201,7 +202,6 @@
     (let ((Δ.state-A (aref Δ state-A)))
       (push state-B (gethash transit-char Δ.state-A nil)))))
 
-;;; I need to think how to line up these series of methods...
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (epsilon (eql 'epsilon))
@@ -225,11 +225,11 @@
 				   &key &allow-other-keys)
   (with-slots (Δ) Δ-instance
     (let* ((Δ.state-A (aref Δ state-A))
-           (Δ.state-A.transit-char (gethash transit-char Δ.state-A)))
-      (if Δ.state-A.transit-char
-	(let ((Δ.state-A.transit-char-no-state-B (delete state-B Δ.state-A.transit-char)))
-	  (if Δ.state-A.transit-char-no-state-B
-	      (setf (gethash transit-char Δ.state-A) Δ.state-A.transit-char-no-state-B)
+           (Δ.state-A.transit-char.states (gethash transit-char Δ.state-A)))
+      (if Δ.state-A.transit-char.states
+	(let ((Δ.state-A.transit-char.states-no-B (delete state-B Δ.state-A.transit-char.states)))
+	  (if Δ.state-A.transit-char.states-no-B
+	      (setf (gethash transit-char Δ.state-A) Δ.state-A.transit-char.states-no-B)
 	      (remhash transit-char Δ.state-A)))
 	(remhash transit-char Δ.state-A)))))
 
