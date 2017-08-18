@@ -268,7 +268,6 @@
 	   (Δ.state.transit-char.states (gethash transit-char Δ.state)))
       Δ.state.transit-char.states)))
 
-
 ;;;   This recursive generic function is my initial way of organizing the problem and will probably
 ;;; run into space constraints in short order. Also, the goal was to make this not write-only code
 ;;; so that I could read this at some arbitrary future date.
@@ -322,7 +321,7 @@
   ;; which should be the same (however mutated) object with each push-fragment.
   ;;    This is to stick to the philosophy of not doing things for side-effects while
   ;; allowing for the efficient reuse of objects (assuming objects handed to each method
-  ;; are for the exclusive use of that method).
+  ;; are for the exclusive use of that method until handed back).
   (multiple-value-bind (NFA-instance begin-state state-A-in)
       ;; begin[epsilon]-->A-in
       (push-fragment 'regex-epsilon
@@ -402,4 +401,31 @@
 		       :begin-state state-A-out
 		       :end-state begin-state)
       (values NFA-instance begin-state begin-state))))
+
+(defmethod push-fragment ((fragment-type (eql 'regex-plus))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next)
+			  &allow-other-keys)
+  nil)
+
+(defmethod push-fragment ((fragment-type (eql 'regex-more-or))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next)
+			    regex-lang-list
+			  &allow-other-keys)
+  nil)
+
+(defmethod push-fragment ((fragment-type (eql 'regex-more-literal))
+			  (NFA-instance NFA)
+			  &key
+			    (begin-state 'next)
+			    (end-state 'next)
+			    transit-char-list
+			  &allow-other-keys)
+  nil)
+
 
