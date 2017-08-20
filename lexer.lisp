@@ -429,7 +429,7 @@
   nil)
 
 
-;; '(regex-literal ((state-begin state-end) (char-1 char-2 ... char-n)))
+;; 'regex-literal '((state-begin state-end) (char-1 char-2 ... char-n))
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-literal))
 			    (argument-list list)
 			    (NFA-instance NFA)
@@ -454,20 +454,54 @@
 	 state-begin
 	 state-end)))))
 
-;; '(regex-ε ((state-begin-1 state-end-1) (state-begin-2 state-end-2) ... (state-begin-n state-end-n)))
+;; 'regex-ε '((state-begin-1 state-end-1) (state-begin-2 state-end-2) ... (state-begin-n state-end-n))
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-ε))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key
 			    &allow-other-keys)
-  (let ((argument-list (reverse argument-list))
-	(return-states (list)))
+  (let ((state-begin-1 (caar argument-list))
+	(state-end-n nil))
     (dolist (state-pairs argument-list)
-      (multiple-value-bind (NFA-instance-too state-begin state-end)
-	  (push-fragment-2 'regex-literal `(,state-pairs (ε)) NFA-instance)
-	(setf NFA-instance NFA-instance-too)
-	(push state-end return-states)
-	(push state-begin return-states)))
-    (apply #'values NFA-instance return-states))) 
+      (multiple-value-bind (NFA-instance-too state-begin-m state-end-m)
+	  (push-fragment-2 'regex-literal (list state-pairs (list 'ε)) NFA-instance)
+	(setf state-end-n state-end-m)
+	(setf NFA-instance NFA-instance-too)))
+    (values NFA-instance state-begin-1 state-end-n))))) 
 
+;; 'regex-concat '((state-begin state-end) (frag-1-in frag-2-out) ... (frag-n-in frag-n-out))
+;; --> 'regex-ε '((state-begin frag-1-in) (frag-2-out frag-3-in) ... (frag-n-out state-end))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-concat))
+			    (argument-list list)
+			    (NFA-instance NFA)
+			    &key
+			    &allow-other-keys)
+  (let ((state-begin (caar argument-list))
+	(state-end (cadar argument-list))
+	(state-first-in (caadr argument-list))
+	(fragments-to-concat (cdr argument-list)))
+    (labels ((chain-list (old-list new-list)
+	       (if (cdr old-list)
+		   (chain-list (cdr old-list)
+			       (append new-list (list (list (cadar old-list) (caadr old-list)))))
+		   (values (cadar old-list) new-list))))
+      (multiple-value-bind (state-last-out regex-ε-list)
+	  (chain-list fragments-to-concat nil)
+	(push-fragment-2 'regex-ε
+			 (append (list (list state-begin state-first-in))
+				 regex-ε-list
+				 (list (list state-last-out state-end)))
+			 NFA-instance)))))
+					  
+    
+	       
 
+;; 'regex-or
+
+;; 'regex-star
+
+;; 'regex-plus
+
+;; 'regex-interval
+
+;; 'regex-opt
