@@ -354,13 +354,13 @@
 			    &key &allow-other-keys)
   (let ((fragment-or-in (caar argument-list))
 	(fragment-or-out (cadar argument-list))
-	(fragments-to-or (cdr argument-list))
-	(fragment-or-pairs (list)))
+	(frags-to-or (cdr argument-list))
+	(frag-or-pairs (list)))
     (push-fragment-2 'regex-ε
-		     (dolist (fragment fragments-to-or fragment-or-pairs)
-		       (setf fragment-or-pairs (append fragment-or-pairs
-					               (list (list fragment-or-in (car fragment)))
-						       (list (list (cadr fragment) fragment-or-out)))))
+		     (dolist (frag frags-to-or frag-or-pairs)
+		       (setf frag-or-pairs (append frag-or-pairs
+					           (list (list fragment-or-in (car frag)))
+						   (list (list (cadr frag) fragment-or-out)))))
 		     NFA-instance)))
 
 ;; begin*[ε]-->A-in A-out[ε]-->begin*
@@ -389,8 +389,7 @@
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-plus))
 			    (argument-list list)
 			    (NFA-instance NFA)
-			    &key
-			    &allow-other-keys)
+			    &key &allow-other-keys)
   (push-fragment-2 'regex-or argument-list NFA-instance)) 
 
 ;; (push-fragment-2 'regex-interval '((fragment-interval-in fragment-interval-out) (interval-1-char-start interval-1-char-end) ... (interval-n-char-start interval-n-char-end)) NFA)
@@ -399,15 +398,23 @@
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-interval))
 			    (argument-list list)
 			    (NFA-instance NFA)
-			    &key
-			    &allow-other-keys)
-  (let ((fragment-interval-in (caar argument-list))
-	(fragment-interval-out (cadar argument-list))
+			    &key &allow-other-keys)
+  (let ((start-end (car argument-list))
 	(intervals-list (cdr argument-list))
-	(character-list (list)))
-    (dolist (interval intervals-list character-list)
-      )))
-      
+	(char-list (list)))
+    (labels ((char-interval->list (char1 char2)
+	       (when (char< char1 char2)
+		 (do ((char-iter char1 (code-char (1+ (char-code char-iter))))
+		      (char-list (list) (push char-iter char-list)))
+		     ((char> char-iter char2) (nreverse char-list))))))
+      (push-fragment-2 'regex-literal
+		       (list start-end
+			     (dolist (interval intervals-list char-list)
+			       (setf char-list
+				     (append char-list
+					     (char-interval->list (first interval)
+								  (second interval))))))
+		       NFA-instance))))
 
 ;; (push-fragment-2 'regex-optional '((fragment-optional-in fragment-optional-out) (fragment-in fragment-out)) NFA)
 ;; --> (push-fragment-2 'regex-ε '((fragment-optional-in fragment-optional-out) (fragment-optional-in fragment-in) (fragment-out fragment-optional-out)) NFA)
@@ -415,8 +422,7 @@
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-optional))
 			    (argument-list list)
 			    (NFA-instance NFA)
-			    &key
-			    &allow-other-keys)
+			    &key &allow-other-keys)
   (let ((fragment-optional-in (caar argument-list))
 	(fragment-optional-out (cadar argument-list))
 	(fragment-in (caadr argument-list))
