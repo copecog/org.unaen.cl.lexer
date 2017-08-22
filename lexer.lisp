@@ -53,7 +53,11 @@
   ((Σ :initarg :Σ
       :initform 'cl-utf
       :reader Σ
-      :documentation "A finite set of input symbols Σ.")))
+      :documentation "A finite set of input symbols Σ.")
+   (Σ-in-use :initarg :Σ-in-use
+	      :initform (list)
+	      :reader Σ-in-use
+	      :documentation "A list of actual symbol objects in use.")))
 
 ;;   A transition function Δ : Q × Σ → P(Q). Using the enumeration from Q we
 ;; store each state object under an array, and each state contains the
@@ -226,6 +230,14 @@
   (with-slots (Δ) NFA-instance
     (let ((Δ.state-A (aref Δ state-A)))
       (push state-B (gethash ε Δ.state-A nil)))))
+
+(defmethod push-transit :before ((state-A integer)
+				 (state-B integer)
+				 transit-char
+				 (Σ-instance Σ)
+				 &key &allow-other-keys)
+  (with-slots (Σ-in-use) Σ-instance
+    (pushnew transit-char Σ-in-use)))
 
 (defmethod push-transit (state-A
 			 state-B
@@ -402,19 +414,20 @@
   (let ((start-end (car argument-list))
 	(intervals-list (cdr argument-list))
 	(char-list (list)))
-    (labels ((char-interval->list (char1 char2)
-	       (when (char< char1 char2)
-		 (do ((char-iter char1 (code-char (1+ (char-code char-iter))))
-		      (char-list (list) (push char-iter char-list)))
-		     ((char> char-iter char2) (nreverse char-list))))))
-      (push-fragment-2 'regex-literal
-		       (list start-end
-			     (dolist (interval intervals-list char-list)
-			       (setf char-list
-				     (append char-list
-					     (char-interval->list (first interval)
-								  (second interval))))))
-		       NFA-instance))))
+    (push-fragment-2 'regex-literal
+		     (list start-end
+			   (dolist (interval intervals-list char-list)
+			     (setf char-list
+				   (append char-list
+					   (char-interval->list (first interval)
+								(second interval))))))
+		     NFA-instance)))
+
+(defmethod char-interval->list ((char1 character) (char2 character))
+  (when (char< char1 char2)
+    (do ((char-iter char1 (code-char (1+ (char-code char-iter))))
+	 (char-list (list) (push char-iter char-list)))
+	((char> char-iter char2) (nreverse char-list)))))
 
 ;; (push-fragment-2 'regex-optional '((fragment-optional-in fragment-optional-out) (fragment-in fragment-out)) NFA)
 ;; --> (push-fragment-2 'regex-ε '((fragment-optional-in fragment-optional-out) (fragment-optional-in fragment-in) (fragment-out fragment-optional-out)) NFA)
@@ -432,3 +445,6 @@
 			   (list fragment-optional-in fragment-in)
 			   (list fragment-out fragment-optional-out))
 		     NFA-instance)))
+
+
+
