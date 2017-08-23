@@ -120,7 +120,7 @@
 (defgeneric push-fragment (regex-fragment-list FA &rest arguments &key &allow-other-keys)
   (:documentation "Push new finite state automaton fragment onto FA by type."))
 
-(defgeneric push-fragment-3 (fragment-type specifications-list FA &key &allow-other-keys))
+(defgeneric push-fragment-2 (fragment-type specifications-list FA &key &allow-other-keys))
 
 (defgeneric char-interval->list (char-start char-end))
 
@@ -175,15 +175,13 @@
 ;; All the :before methods I use to organize the assigns for the single push-state operation.
 (defmethod push-state :before ((state-name string)
 			       (Q-instance Q)
-			       &key
-			       &allow-other-keys)
+			       &key &allow-other-keys)
   (with-slots (Q) Q-instance
     (vector-push-extend state-name Q))) ; Push our state-name onto our vector of state names.
 
 (defmethod push-state :before ((state-name string)
 			       (Δ-instance Δ)
-			       &key
-			       &allow-other-keys)
+			       &key &allow-other-keys)
   (with-slots (Σ Δ) Δ-instance
     (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
 
@@ -208,13 +206,32 @@
 
 (defmethod push-state ((state-name string)
 		       (FA-instance FA)
-		       &key
-		       &allow-other-keys)
+		       &key &allow-other-keys)
   (with-slots (Q Δ F) FA-instance
     (values FA-instance                    ; Return mutated FA after all said and done...
 	    (1- (and (fill-pointer Q)
 		     (fill-pointer Δ)      ; (and quick consistency check)
 		     (fill-pointer F)))))) ; ...as well as the state number.
+
+(defmethod push-all-states ((states-tree list)
+		           (FA-instance FA))
+  (cons (push-all-states (car states-tree) FA-instance)
+        (push-all-states (cdr states-tree) FA-instance)))
+
+(defmethod push-all-states ((next (eql 'next))
+			   (FA-instance FA))
+  (multiple-value-bind (FA-instance new-state)
+      (push-state 'next FA-instance)
+    new-state))
+
+(defmethod push-all-states ((next (eql nil))
+			   (FA-instance FA))
+  nil)
+
+(defmethod push-all-states (next
+			   (FA-instance FA))
+  next)
+
 
 ;;; I don't like how the work for push-transit is organized...
 (defmethod push-transit :before ((state-A integer)
@@ -283,7 +300,7 @@
       Δ.state.transit-char.states)))
 
 
-;;;    push-fragment-3 is the work-horse: it actually processes lists of states and/or
+;;;    push-fragment-2 is the work-horse: it actually processes lists of states and/or
 ;;; transit-characters for contained sub-fragments and creates as well as links those
 ;;; respective states through transitions on those respective transit-characters.
 ;;;
@@ -304,9 +321,9 @@
 ;;;     regex-optional
 ;;;
 
-;; (push-fragment-3 'regex-literal '((fragment-literal-in fragment-literal-out) (char-1 char-2 ... char-n)) NFA)
+;; (push-fragment-2 'regex-literal '((fragment-literal-in fragment-literal-out) (char-1 char-2 ... char-n)) NFA)
 ;; ==> NFA fragment-literal-in fragment-literal-out
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-literal))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-literal))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
@@ -328,26 +345,28 @@
 	 fragment-literal-in
 	 fragment-literal-out)))))
 
-;; (push-fragment-3 'regex-ε '((state-1-in state-1-out) (state-2-in state-2-out) ... (state-n-in state-n-out)) NFA)
-;; --> (push-fragment-3 'regex-literal '((state-1-in state-1-out) ('ε)) NFA) ... (push-fragment-3 'regex-literal '((state-n-in state-n-out) ('ε)) NFA)
-;; ==> NFA state-1-in state-2-out
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-ε))
+;; (push-fragment-2 'regex-ε '((state-1-in state-1-out) (state-2-in state-2-out) ... (state-n-in state-n-out)) NFA)
+;; --> (push-fragment-2 'regex-literal '((state-1-in state-1-out) ('ε)) NFA) ... (push-fragment-2 'regex-literal '((state-n-in state-n-out) ('ε)) NFA)
+;; ==> NFA state-1-in state-n-out
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-ε))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
-  (let ((fragment-ε-in (caar argument-list))
+  (let ((fragment-ε-in-1st nil)
 	(fragment-ε-out-n nil))
     (dolist (state-pair argument-list)
       (multiple-value-bind (NFA-instance-m fragment-ε-in-m fragment-ε-out-m)
-	  (push-fragment-3 'regex-literal (list state-pair (list 'ε)) NFA-instance)
+	  (push-fragment-2 'regex-literal (list state-pair (list 'ε)) NFA-instance)
+	(unless fragment-ε-in-1st
+	  (setf fragment-ε-in-1st fragment-ε-in-m))
 	(setf fragment-ε-out-n fragment-ε-out-m)
 	(setf NFA-instance NFA-instance-m)))
-    (values NFA-instance fragment-ε-in fragment-ε-out-n)))
+    (values NFA-instance fragment-ε-in-1st fragment-ε-out-n)))
 
-;; (push-fragment-3 'regex-concat '((fragment-concat-in fragment-concat-out) (frag-1-in frag-2-out) ... (frag-n-in frag-n-out)) NFA)
-;; --> (push-fragment-3 'regex-ε '((fragment-concat-in frag-1-in) (frag-2-out frag-3-in) ... (frag-n-out fragment-concat-out)) NFA)
+;; (push-fragment-2 'regex-concat '((fragment-concat-in fragment-concat-out) (frag-1-in frag-2-out) ... (frag-n-in frag-n-out)) NFA)
+;; --> (push-fragment-2 'regex-ε '((fragment-concat-in frag-1-in) (frag-2-out frag-3-in) ... (frag-n-out fragment-concat-out)) NFA)
 ;; ==> NFA fragment-concat-in fragment-concat-out
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-concat))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-concat))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
@@ -358,21 +377,20 @@
     (labels ((chain-pairs (old-list new-list)
 	       (if (cdr old-list)
 		   (chain-pairs (cdr old-list)
-			        (append new-list
-					(list (list (cadar old-list) (caadr old-list)))))
-		   (values (cadar old-list) new-list))))
+			        (push (list (cadar old-list) (caadr old-list)) new-list)))
+		   (values (cadar old-list) (nreverse new-list))))
       (multiple-value-bind (fragment-nth-out chain-pairs)
 	  (chain-pairs fragments-to-concat (list))
-	(push-fragment-3 'regex-ε
+	(push-fragment-2 'regex-ε
 			 (append (list (list fragment-concat-in fragment-1st-in))
 			         chain-pairs
 			         (list (list fragment-nth-out fragment-concat-out)))
 			 NFA-instance)))))
 
-;; (push-fragment-3 'regex-or '((fragment-or-in fragment-or-out) (frag-1-in frag-1-out) ... (frag-n-in frag-n-out)) NFA)
-;; --> (push-fragment-3 'regex-ε '((fragment-or-in frag-1-in) ... (fragment-or-in frag-n-in) (frag-1-out fragment-or-out) ... (frag-n-out fragment-or-out)) NFA)
+;; (push-fragment-2 'regex-or '((fragment-or-in fragment-or-out) (frag-1-in frag-1-out) ... (frag-n-in frag-n-out)) NFA)
+;; --> (push-fragment-2 'regex-ε '((fragment-or-in frag-1-in) ... (fragment-or-in frag-n-in) (frag-1-out fragment-or-out) ... (frag-n-out fragment-or-out)) NFA)
 ;; ==> NFA fragment-or-in fragment-or-out
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-or))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-or))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
@@ -380,17 +398,16 @@
 	(fragment-or-out (cadar argument-list))
 	(frags-to-or (cdr argument-list))
 	(frag-or-pairs (list)))
-    (push-fragment-3 'regex-ε
+    (push-fragment-2 'regex-ε
 		     (dolist (frag frags-to-or frag-or-pairs)
-		       (setf frag-or-pairs (append frag-or-pairs
-					           (list (list fragment-or-in (car frag)))
-						   (list (list (cadr frag) fragment-or-out)))))
+		       (push (list (second frag) fragment-or-out) frag-or-pairs)
+		       (push (list fragment-or-in (first frag)) frag-or-pairs))
 		     NFA-instance)))
 
-;; (push-fragment-3 'regex-star '((fragment-star-in fragment-star-out) (frag-in frag-out)) NFA)
-;; --> (push-fragment-3 'regex-ε '((fragment-star-in fragment-star-out) (fragment-star-out fragment-star-in) (fragment-star-in frag-in) (frag-out fragment-star-out)) NFA)
+;; (push-fragment-2 'regex-star '((fragment-star-in fragment-star-out) (frag-in frag-out)) NFA)
+;; --> (push-fragment-2 'regex-ε '((fragment-star-in fragment-star-out) (fragment-star-out fragment-star-in) (fragment-star-in frag-in) (frag-out fragment-star-out)) NFA)
 ;; ==> NFA fragment-star-in fragment-star-out
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-star))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-star))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
@@ -398,33 +415,33 @@
 	(fragment-star-out (cadar argument-list))
 	(fragment-in (caadr argument-list))
 	(fragment-out (caddr argument-list)))
-    (push-fragment-3 'regex-ε
+    (push-fragment-2 'regex-ε
 		     (list (list fragment-star-in fragment-star-out)
 			   (list fragment-star-out fragment-star-in)
 			   (list fragment-star-in fragment-in)
 			   (list fragment-out fragment-star-out))
 		     NFA-instance)))
 
-;; (push-fragment-3 'regex-plus '((fragment-plus-in fragment-plus-out) (frag-in frag-out)) NFA)
-;; --> (push-fragment-3 'regex-or '((fragment-plus-in fragment-plus-out) (frag-in frag-out)) NFA)
+;; (push-fragment-2 'regex-plus '((fragment-plus-in fragment-plus-out) (frag-in frag-out)) NFA)
+;; --> (push-fragment-2 'regex-or '((fragment-plus-in fragment-plus-out) (frag-in frag-out)) NFA)
 ;; ==> NFA state-begin state-end
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-plus))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-plus))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
-  (push-fragment-3 'regex-or argument-list NFA-instance)) 
+  (push-fragment-2 'regex-or argument-list NFA-instance)) 
 
-;; (push-fragment-3 'regex-interval '((fragment-interval-in fragment-interval-out) (interval-1-char-start interval-1-char-end) ... (interval-n-char-start interval-n-char-end)) NFA)
-;; --> (push-fragment-3 'regex-literal '((fragment-interval-in fragment-interval-out) (interval-1-char-start interval-1-char-2 ... interval-1-char-end ... interval-n-char-start interval-n-char-2 ... interval-n-char-end)) NFA)
+;; (push-fragment-2 'regex-interval '((fragment-interval-in fragment-interval-out) (interval-1-char-start interval-1-char-end) ... (interval-n-char-start interval-n-char-end)) NFA)
+;; --> (push-fragment-2 'regex-literal '((fragment-interval-in fragment-interval-out) (interval-1-char-start interval-1-char-2 ... interval-1-char-end ... interval-n-char-start interval-n-char-2 ... interval-n-char-end)) NFA)
 ;; ==> NFA state-begin state-end
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-interval))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-interval))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
   (let ((start-end (car argument-list))
 	(intervals-list (cdr argument-list))
 	(char-list (list)))
-    (push-fragment-3 'regex-literal
+    (push-fragment-2 'regex-literal
 		     (list start-end
 			   (dolist (interval intervals-list char-list)
 			     (setf char-list
@@ -439,10 +456,10 @@
 	 (char-list (list) (push char-iter char-list)))
 	((char> char-iter char2) (nreverse char-list)))))
 
-;; (push-fragment-3 'regex-optional '((fragment-optional-in fragment-optional-out) (fragment-in fragment-out)) NFA)
-;; --> (push-fragment-3 'regex-ε '((fragment-optional-in fragment-optional-out) (fragment-optional-in fragment-in) (fragment-out fragment-optional-out)) NFA)
+;; (push-fragment-2 'regex-optional '((fragment-optional-in fragment-optional-out) (fragment-in fragment-out)) NFA)
+;; --> (push-fragment-2 'regex-ε '((fragment-optional-in fragment-optional-out) (fragment-optional-in fragment-in) (fragment-out fragment-optional-out)) NFA)
 ;; ==> NFA state-begin state-end
-(defmethod push-fragment-3 ((fragment-type (eql 'regex-optional))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-optional))
 			    (argument-list list)
 			    (NFA-instance NFA)
 			    &key &allow-other-keys)
@@ -450,7 +467,7 @@
 	(fragment-optional-out (cadar argument-list))
 	(fragment-in (caadr argument-list))
 	(fragment-out (caddr argument-list)))
-    (push-fragment-3 'regex-ε
+    (push-fragment-2 'regex-ε
 		     (list (list fragment-optional-in fragment-optional-out)
 			   (list fragment-optional-in fragment-in)
 			   (list fragment-out fragment-optional-out))
@@ -572,34 +589,51 @@
 
 (defmethod push-fragment ((regex-list list)
 			  (NFA-instance NFA)
-			  &key &allow-other-keys)
+			  &rest
+			    pass-forward-args)
   (let ((regex-operation (car regex-list))
 	(regex-arguments (cdr regex-list)))
     (apply #'push-fragment regex-operation NFA-instance regex-arguments)))
 
 ;; literal a
 (defmethod push-fragment ((liter (eql 'liter))
-			  (NFA-instance NFA)
-			  &rest arguments
+			  (NFA-inst NFA)
+			  &rest
+			    pass-forward-args)
+  (let ((liter-args (list (list 'next 'next))))
+    (push-fragment-2 'regex-literal
+		     (push-all-states (append liter-args
+					      (list pass-forward-args))
+				      NFA-inst)
+		     NFA-inst)))
+
+(defmethod push-fragment ((first-char character)
+			  (NFA-inst NFA)
+			  &rest
+			    forward-args
 			  &key &allow-other-keys)
-  nil)
+  (push-fragment (cons 'liter (cons first-char args))
+		 NFA-inst) 
+
 
 ;; concatenate ab
 (defmethod push-fragment ((conc (eql 'conc))
-			  (NFA-instance NFA)
+			  (NFA-inst NFA)
 			  &rest
-			    arguments
+			    args
 			  &key &allow-other-keys)
-  (let ((concat-arguments (list (list 'next 'next))))
-    (push-fragment-3 'regex-concat
-		     (dolist (argument arguments concat-arguments)
-		       (multiple-value-bind (NFA-instance-pushed fragment-begin fragment-end)
-			   (push-fragment argument NFA-instance)
-			 (setf concat-arguments (append concat-arguments 
-							(list (list fragment-begin fragment-end))))
-					;This has to traverse concat-arguments every iteration.
-			 (setf NFA-instance NFA-instance-pushed)))
-		     NFA-instance))) 
+  (let ((concat-args (list (list 'next 'next))))
+    (push-fragment-2 'regex-concat
+		     (push-all-states (dolist (arg args concat-args)
+					(multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					    (push-fragment arg NFA-inst)
+					  (setf concat-args (append concat-args 
+								    (list (list frag-begin
+										frag-end))))
+					  (setf NFA-inst NFA-inst-pushed)))
+				      NFA-inst)
+		     NFA-inst)))
+
       
 ;; or a|b
 (defmethod push-fragment ((or (eql 'or))
@@ -640,3 +674,18 @@
 			    arguments
 			  &key &allow-other-keys)
   nil)
+
+
+
+
+(defmethod foo ((arg1 list)
+		arg2
+		&rest
+		  rest)
+  (apply #'foo (car arg1) arg2 (cdr arg1)))
+
+(defmethod foo ((arg1 (eql 'bar))
+		arg2
+		&rest
+		  rest)
+  rest)
