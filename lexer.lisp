@@ -164,10 +164,7 @@
 
 (defmethod push-state ((state integer)
 		       (FA-instance FA)
-		       &key
-			 (start-p nil)
-			 (final-p nil)
-		       &allow-other-keys)
+		       &key &allow-other-keys)
   (with-slots (Q) FA-instance
     (values FA-instance (when (<= state (fill-pointer Q))
 			  state))))
@@ -716,7 +713,7 @@
 (defmethod push-fragment ((conc (eql 'conc))
 			  (NFA-inst NFA)
 			  &rest
-			    pass-forward-args
+			    pass-forward-args)
   (let ((concat-args (list (list 'next 'next))))
     (push-fragment-2 'regex-concat
 		     (push-all-states (dolist (arg pass-forward-args concat-args)
@@ -746,7 +743,7 @@
 				      NFA-inst)
 		     NFA-inst)))
 
-;; Kleene star (zero or more) *
+;; Kleene star (zero or more) *x
 (defmethod push-fragment ((star (eql 'star))
 			  (NFA-instance NFA)
 			  &rest
