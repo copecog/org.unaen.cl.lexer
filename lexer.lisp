@@ -377,8 +377,9 @@
     (labels ((chain-pairs (old-list new-list)
 	       (if (cdr old-list)
 		   (chain-pairs (cdr old-list)
-			        (push (list (cadar old-list) (caadr old-list)) new-list)))
-		   (values (cadar old-list) (nreverse new-list))))
+			        (setf new-list (append (list (list (cadar old-list) (caadr old-list)))
+						       new-list)))
+		   (values (cadar old-list) (nreverse new-list)))))
       (multiple-value-bind (fragment-nth-out chain-pairs)
 	  (chain-pairs fragments-to-concat (list))
 	(push-fragment-2 'regex-ε
@@ -610,21 +611,19 @@
 (defmethod push-fragment ((first-char character)
 			  (NFA-inst NFA)
 			  &rest
-			    forward-args
-			  &key &allow-other-keys)
-  (push-fragment (cons 'liter (cons first-char args))
-		 NFA-inst) 
-
+			    pass-forward-args)
+  (push-fragment (cons 'liter (cons first-char pass-forward-args))
+		 NFA-inst))
 
 ;; concatenate ab
 (defmethod push-fragment ((conc (eql 'conc))
 			  (NFA-inst NFA)
 			  &rest
-			    args
+			    pass-forward-args
 			  &key &allow-other-keys)
   (let ((concat-args (list (list 'next 'next))))
     (push-fragment-2 'regex-concat
-		     (push-all-states (dolist (arg args concat-args)
+		     (push-all-states (dolist (arg pass-forward-args concat-args)
 					(multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
 					    (push-fragment arg NFA-inst)
 					  (setf concat-args (append concat-args 
@@ -633,15 +632,23 @@
 					  (setf NFA-inst NFA-inst-pushed)))
 				      NFA-inst)
 		     NFA-inst)))
-
       
 ;; or a|b
 (defmethod push-fragment ((or (eql 'or))
-			  (NFA-instance NFA)
+			  (NFA-inst NFA)
 			  &rest
-			    arguments
-			  &key &allow-other-keys)
-  nil)
+			    pass-forward-args)
+  (let ((or-args (list (list 'next 'next))))
+    (push-fragment-2 'regex-or
+		     (push-all-states (dolist (arg pass-forward-args or-args)
+					(multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					    (push-fragment arg NFA-inst)
+					  (setf or-args (append or-args 
+								(list (list frag-begin
+									    frag-end))))
+					  (setf NFA-inst NFA-inst-pushed)))
+				      NFA-inst)
+		     NFA-inst)))
 
 ;; Kleene star (zero or more) *
 (defmethod push-fragment ((star (eql 'star))
