@@ -211,25 +211,24 @@
 		     (fill-pointer Δ)      ; (and quick consistency check)
 		     (fill-pointer F)))))) ; ...as well as the state number.
 
-(defmethod push-all-states ((states-tree list)
+(defmethod push-next-states ((states-tree list)
 		           (FA-instance FA))
-  (cons (push-all-states (car states-tree) FA-instance)
-        (push-all-states (cdr states-tree) FA-instance)))
+  (cons (push-next-states (car states-tree) FA-instance)
+        (push-next-states (cdr states-tree) FA-instance)))
 
-(defmethod push-all-states ((next (eql 'next))
+(defmethod push-next-states ((next (eql 'next))
 			   (FA-instance FA))
   (multiple-value-bind (FA-instance new-state)
       (push-state 'next FA-instance)
     new-state))
 
-(defmethod push-all-states ((next (eql nil))
+(defmethod push-next-states ((next (eql nil))
 			   (FA-instance FA))
   nil)
 
-(defmethod push-all-states (next
+(defmethod push-next-states (next
 			   (FA-instance FA))
   next)
-
 
 ;;; I don't like how the work for push-transit is organized...
 (defmethod push-transit :before ((state-A integer)
@@ -407,9 +406,9 @@
     (labels ((chain-pairs (old-list new-list)
 	       (if (cdr old-list)
 		   (chain-pairs (cdr old-list)
-			        (setf new-list (append (list (list (cadar old-list)
-								   (caadr old-list)))
-						       new-list)))
+			        (push (list (cadar old-list)
+					    (caadr old-list))
+				      new-list))
 		   (values (cadar old-list) (nreverse new-list)))))
       (multiple-value-bind (fragment-nth-out chain-pairs)
 	  (chain-pairs fragments-to-concat (list))
@@ -534,6 +533,7 @@
 				   (append char-list
 					   (char-interval->list (first interval)
 								(second interval))))))
+					 
 		     NFA-instance)))
 
 (defmethod char-interval->list ((char1 character) (char2 character))
@@ -698,9 +698,9 @@
 			    pass-forward-args)
   (let ((liter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-literal
-		     (push-all-states (append liter-args
-					      (list pass-forward-args))
-				      NFA-inst)
+		     (push-next-states (append liter-args
+					       (list pass-forward-args))
+				       NFA-inst)
 		     NFA-inst)))
 
 (defmethod push-fragment ((first-char character)
@@ -717,14 +717,12 @@
 			    pass-forward-args)
   (let ((concat-args (list (list 'next 'next))))
     (push-fragment-2 'regex-concat
-		     (push-all-states (dolist (arg pass-forward-args concat-args)
-					(multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
-					    (push-fragment arg NFA-inst)
-					  (setf concat-args (append concat-args 
-								    (list (list frag-begin
-										frag-end))))
-					  (setf NFA-inst NFA-inst-pushed)))
-				      NFA-inst)
+		     (push-next-states (dolist (arg pass-forward-args (nreverse concat-args))
+					 (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					     (push-fragment arg NFA-inst)
+					   (setf NFA-inst NFA-inst-pushed)
+					   (push (list frag-begin frag-end) concat-args)))
+				       NFA-inst)
 		     NFA-inst)))
       
 ;; or a|b
@@ -734,14 +732,12 @@
 			    pass-forward-args)
   (let ((or-args (list (list 'next 'next))))
     (push-fragment-2 'regex-or
-		     (push-all-states (dolist (arg pass-forward-args or-args)
-					(multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
-					    (push-fragment arg NFA-inst)
-					  (setf or-args (append or-args 
-								(list (list frag-begin
-									    frag-end))))
-					  (setf NFA-inst NFA-inst-pushed)))
-				      NFA-inst)
+		     (push-next-states (dolist (arg pass-forward-args (nreverse or-args))
+					 (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					     (push-fragment arg NFA-inst)
+					   (setf NFA-inst NFA-inst-pushed)
+					   (push (list frag-begin frag-end) or-args)))
+				       NFA-inst)
 		     NFA-inst)))
 
 ;; Kleene star (zero or more) *
@@ -751,13 +747,12 @@
 			    pass-forward-args)
   (let ((star-args (list (list 'next 'next))))
     (push-fragment-2 'regex-star
-		     (push-all-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
-					  (push-fragment pass-forward-args NFA-inst)
-					(setf NFA-inst NFA-inst-pushed)
-					(append star-args
-						(list (list frag-begin
-							    frag-end))))
-				      NFA-inst)
+		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					   (push-fragment pass-forward-args NFA-inst)
+					 (setf NFA-inst NFA-inst-pushed)
+					 (append star-args
+						(list (list frag-begin frag-end))))
+				       NFA-inst)
 		     NFA-inst)))
 
 ;; plus (one or more) +
@@ -767,13 +762,12 @@
 			    pass-forward-args)
   (let ((plus-args (list (list 'next 'next))))
     (push-fragment-2 'regex-plus
-		     (push-all-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
-					  (push-fragment pass-forward-args NFA-inst)
-					(setf NFA-inst NFA-inst-pushed)
-					(append plus-args
-						(list (list frag-begin
-							    frag-end))))
-				      NFA-inst)
+		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					   (push-fragment pass-forward-args NFA-inst)
+					 (setf NFA-inst NFA-inst-pushed)
+					 (append plus-args
+						 (list (list frag-begin frag-end))))
+				       NFA-inst)
 		     NFA-inst)))
 
 ;; interval (a|b|c|...|z) a-z
@@ -783,10 +777,18 @@
 			    pass-forward-args)
   (let ((inter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-interval
-		     (push-all-states (append inter-args
-					      (list pass-forward-args))
-				      NFA-inst)
+		     (push-next-states (append inter-args (list->pairs pass-forward-args))
+				       NFA-inst)
 		     NFA-inst)))
+
+(defun list->pairs (source-list)
+  (labels ((pairs-iter (old-list new-list)
+		       (if (second old-list)
+			   (pairs-iter (cddr old-list)
+				       (push (list (first old-list) (second old-list))
+					     new-list))
+			   new-list)))
+	  (pairs-iter source-list (list))))
   
 ;; optional ?
 (defmethod push-fragment ((opt (eql 'opt))
@@ -795,11 +797,13 @@
 			    pass-forward-args)
   (let ((opt-args (list (list 'next 'next))))
     (push-fragment-2 'regex-optional
-		     (push-all-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
-					  (push-fragment pass-forward-args NFA-inst)
-					(setf NFA-inst NFA-inst-pushed)
-					(append opt-args
-						(list (list frag-begin
-							    frag-end))))
-				      NFA-inst)
+		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
+					   (push-fragment pass-forward-args NFA-inst)
+					 (setf NFA-inst NFA-inst-pushed)
+					 (append opt-args
+						 (list (list frag-begin frag-end))))
+				       NFA-inst)
 		     NFA-inst)))
+
+
+				       
