@@ -413,9 +413,9 @@
       (multiple-value-bind (fragment-nth-out chain-pairs)
 	  (chain-pairs fragments-to-concat (list))
 	(push-fragment-2 'regex-ε
-			 (append (list (list fragment-concat-in fragment-1st-in))
-			         chain-pairs
-			         (list (list fragment-nth-out fragment-concat-out)))
+			 (nconc (list (list fragment-concat-in fragment-1st-in))
+				chain-pairs
+				(list (list fragment-nth-out fragment-concat-out)))
 			 NFA-instance)))))
 
 ;; (push-fragment-2 'regex-or
@@ -530,10 +530,10 @@
 		     (list start-end
 			   (dolist (interval intervals-list char-list)
 			     (setf char-list
-				   (append char-list
-					   (char-interval->list (first interval)
-								(second interval))))))
-					 
+				   (nconc char-list
+					  (char-interval->list (first interval)
+							       (second interval))))))
+		     
 		     NFA-instance)))
 
 (defmethod char-interval->list ((char1 character) (char2 character))
@@ -668,19 +668,19 @@
 
 ;; [+-]? ( (([0-9]+.[0-9]∗|.[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+ )
 
-(defparameter *test-regex* '(conc (opt (#\+ #\-))
-			          (or (conc (or (conc (plus (inter #\0 #\9))
-						      (#\.)
-					              (star (inter #\0 #\9)))
-					        (conc (#\.)
-					              (plus (inter #\0 #\9))))
-				             (opt (conc (#\e #\E)
-					                (opt (#\+ #\-))
-					                (plus (inter #\0 #\9)))))
-			               (conc (plus (inter #\0 #\9))
-			                     (#\e #\E)
-			                     (opt (#\+ #\-))
-			                     (plus (inter #\0 #\9))))))
+(defparameter *test-regex-tree* '(conc (opt (#\+ #\-))
+			               (or (conc (or (conc (plus (inter #\0 #\9))
+				  		           (#\.)
+					                   (star (inter #\0 #\9)))
+					             (conc (#\.)
+					                   (plus (inter #\0 #\9))))
+				                  (opt (conc (#\e #\E)
+					                     (opt (#\+ #\-))
+					                     (plus (inter #\0 #\9)))))
+			                    (conc (plus (inter #\0 #\9))
+			                          (#\e #\E)
+			                          (opt (#\+ #\-))
+			                          (plus (inter #\0 #\9))))))
 
 
 (defmethod push-fragment ((regex-list list)
@@ -698,8 +698,8 @@
 			    pass-forward-args)
   (let ((liter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-literal
-		     (push-next-states (append liter-args
-					       (list pass-forward-args))
+		     (push-next-states (nconc liter-args
+					      (list pass-forward-args))
 				       NFA-inst)
 		     NFA-inst)))
 
@@ -750,7 +750,7 @@
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
 					   (push-fragment pass-forward-args NFA-inst)
 					 (setf NFA-inst NFA-inst-pushed)
-					 (append star-args
+					 (nconc star-args
 						(list (list frag-begin frag-end))))
 				       NFA-inst)
 		     NFA-inst)))
@@ -765,8 +765,8 @@
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
 					   (push-fragment pass-forward-args NFA-inst)
 					 (setf NFA-inst NFA-inst-pushed)
-					 (append plus-args
-						 (list (list frag-begin frag-end))))
+					 (nconc plus-args
+						(list (list frag-begin frag-end))))
 				       NFA-inst)
 		     NFA-inst)))
 
@@ -777,7 +777,7 @@
 			    pass-forward-args)
   (let ((inter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-interval
-		     (push-next-states (append inter-args (list->pairs pass-forward-args))
+		     (push-next-states (nconc inter-args (list->pairs pass-forward-args))
 				       NFA-inst)
 		     NFA-inst)))
 
@@ -800,10 +800,41 @@
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
 					   (push-fragment pass-forward-args NFA-inst)
 					 (setf NFA-inst NFA-inst-pushed)
-					 (append opt-args
-						 (list (list frag-begin frag-end))))
+					 (nconc opt-args
+						(list (list frag-begin frag-end))))
 				       NFA-inst)
 		     NFA-inst)))
 
 
-				       
+(defgeneric ε-closure (state NFA))
+
+;; ==> (state-integer-a state-integer-b ... state-integer-n)
+(defmethod ε-closure ((state integer)
+		      (NFA-inst NFA))
+  (labels ((ε-closure-iter (in-list out-list)
+	     (let ((state (pop in-list)))
+	       (if state
+		   (if (member state out-list)
+		       (ε-closure-iter in-list out-list)
+		       (ε-closure-iter (nconc in-list (get-transit state 'ε NFA-inst))
+				       (push state out-list)
+		   out-list))))
+    (ε-closure-iter (list state) (list))))
+
+
+;;; Q Σ Δ q₀ F
+
+(defvar *debug* (list))
+
+(defmethod NFA->DFA :around ((NFA-inst NFA))
+  (push 'NFA->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :before ((NFA-inst NFA))
+  (push 'NFA->before *debug*))
+
+(defmethod NFA->DFA ((NFA-inst NFA))
+  (push 'NFA->primary *debug*))
+
+(defmethod NFA->DFA :after ((NFA-inst NFA))
+  (push 'NFA->after *debug*))
