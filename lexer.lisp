@@ -94,6 +94,8 @@
 (defclass NFA (FA) ()
   (:documentation "Nondeterministic Finite Automata."))
 
+(defclass DFA (FA) ()
+  (:documentation "Deterministric Finite Automata."))
 
 ;;; Generic Function Prototypes
 (defgeneric make-state-vector (size &key &allow-other-keys)
@@ -532,8 +534,7 @@
 			     (setf char-list
 				   (nconc char-list
 					  (char-interval->list (first interval)
-							       (second interval))))))
-		     
+							       (second interval))))))		     
 		     NFA-instance)))
 
 (defmethod char-interval->list ((char1 character) (char2 character))
@@ -806,50 +807,57 @@
 		     NFA-inst)))
 
 
-(defgeneric ε-closure (state NFA))
-
 ;; ==> (state-integer-a state-integer-b ... state-integer-n)
-(defmethod ε-closure ((state integer)
-		      (NFA-inst NFA))
-  (labels ((ε-closure-iter (in-list out-list)
-	     (let ((state (pop in-list)))
-	       (if state
-		   (if (member state out-list)
-		       (ε-closure-iter in-list out-list)
-		       (ε-closure-iter (nconc in-list (get-transit state 'ε NFA-inst))
-				       (push state out-list)))
-		   out-list))))
-    (ε-closure-iter (list state) (list))))
+(defmethod char-closure ((state integer)
+			 (transit-char character)
+			 (Δ-inst Δ))
+  (char-closure-iter (list state) (list) transit-char Δ-inst))
+
+(defmethod char-closure ((states list)
+			 (transit-char character)
+			 (Δ-inst Δ))
+  (dolist (state states 
+  
+
+(defun char-closure-iter (states-in states-out transit-char Δ-inst)
+  (let ((state (pop states-in)))
+    (if state
+	(if (member state states-out)
+	    (char-closure-iter states-in transit-char Δ-inst states-out)
+	    (char-closure-iter (nconc states-in (get-transit state transit-char Δ-inst))
+			       transit-char
+			       Δ-inst
+			       (push state states-out)))
+	states-out)))
 
 
-;;; Q Σ Δ q₀ F
+;;; Q Σ Δ q₀ F   ε
 
 (defvar *debug* (list))
 
+;(defmethod NFA->DFA :around ((NFA-inst NFA))
+;  (push 'NFA->around *debug*)
+;  (call-next-method))
 
-(defmethod NFA->DFA :around ((NFA-inst NFA))
-  (push 'NFA->around *debug*)
-  (call-next-method))
+;(defmethod NFA->DFA :around ((Q-inst Q))
+;  (push 'Q->around *debug*)
+;  (call-next-method))
 
-(defmethod NFA->DFA :around ((Q-inst Q))
-  (push 'Q->around *debug*)
-  (call-next-method))
+;(defmethod NFA->DFA :around ((Σ-inst Σ))
+;  (push 'Σ->around *debug*)
+;  (call-next-method))
 
-(defmethod NFA->DFA :around ((Σ-inst Σ))
-  (push 'Σ->around *debug*)
-  (call-next-method))
+;(defmethod NFA->DFA :around ((Δ-inst Δ))
+;  (push 'Δ->around *debug*)
+;  (call-next-method))
 
-(defmethod NFA->DFA :around ((Δ-inst Δ))
-  (push 'Δ->around *debug*)
-  (call-next-method))
+;(defmethod NFA->DFA :around ((q₀-inst q₀))
+;  (push 'q₀->around *debug*)
+;  (call-next-method))
 
-(defmethod NFA->DFA :around ((q₀-inst q₀))
-  (push 'q₀->around *debug*)
-  (call-next-method))
-
-(defmethod NFA->DFA :around ((F-inst F))
-  (push 'F->around *debug*)
-  (call-next-method))
+;(defmethod NFA->DFA :around ((F-inst F))
+;  (push 'F->around *debug*)
+;  (call-next-method))
 
 (defmethod NFA->DFA :before ((NFA-inst NFA))
   (push 'NFA->before *debug*))
@@ -857,15 +865,38 @@
 (defmethod NFA->DFA :before ((Q-inst Q))
   (push 'Q->before *debug*))
 
+(defmethod NFA->DFA :before ((Σ-inst Σ))
+  (push 'Σ->before *debug*))
+
+(defmethod NFA->DFA :before ((Δ-inst Δ))
+  (push 'Δ->before *debug*))
+
+(defmethod NFA->DFA :before ((q₀-inst q₀))
+  (push 'q₀->before *debug*))
+
+(defmethod NFA->DFA :before ((F-inst F))
+  (push 'F->before *debug*))
+
 (defmethod NFA->DFA ((NFA-inst NFA))
-  (push 'NFA->prime *debug*)
-  (call-next-method))
+  (push 'NFA->prime *debug*))
 
-(defmethod NFA->DFA :after ((Q-inst Q))
-  (push 'Q->after *debug*))
+;(defmethod NFA->DFA :after ((F-inst F))
+;  (push 'F->after *debug*))
 
-(defmethod NFA->DFA :after ((NFA-inst NFA))
-  (push 'NFA->after *debug*))
+;(defmethod NFA->DFA :after ((q₀-inst q₀))
+;  (push 'q₀->after *debug*))
+
+;(defmethod NFA->DFA :after ((Δ-inst Δ))
+;  (push 'Δ->after *debug*))
+
+;(defmethod NFA->DFA :after ((Σ-inst Σ))
+;  (push 'Σ->after *debug*))
+
+;(defmethod NFA->DFA :after ((Q-inst Q))
+;  (push 'Q->after *debug*))
+
+;(defmethod NFA->DFA :after ((NFA-inst NFA))
+;  (push 'NFA->after *debug*))
 
 
 
