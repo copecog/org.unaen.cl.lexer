@@ -817,7 +817,7 @@
 		   (if (member state out-list)
 		       (ε-closure-iter in-list out-list)
 		       (ε-closure-iter (nconc in-list (get-transit state 'ε NFA-inst))
-				       (push state out-list)
+				       (push state out-list)))
 		   out-list))))
     (ε-closure-iter (list state) (list))))
 
@@ -826,15 +826,47 @@
 
 (defvar *debug* (list))
 
+
 (defmethod NFA->DFA :around ((NFA-inst NFA))
   (push 'NFA->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :around ((Q-inst Q))
+  (push 'Q->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :around ((Σ-inst Σ))
+  (push 'Σ->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :around ((Δ-inst Δ))
+  (push 'Δ->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :around ((q₀-inst q₀))
+  (push 'q₀->around *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :around ((F-inst F))
+  (push 'F->around *debug*)
   (call-next-method))
 
 (defmethod NFA->DFA :before ((NFA-inst NFA))
   (push 'NFA->before *debug*))
 
+(defmethod NFA->DFA :before ((Q-inst Q))
+  (push 'Q->before *debug*))
+
 (defmethod NFA->DFA ((NFA-inst NFA))
-  (push 'NFA->primary *debug*))
+  (push 'NFA->prime *debug*)
+  (call-next-method))
+
+(defmethod NFA->DFA :after ((Q-inst Q))
+  (push 'Q->after *debug*))
 
 (defmethod NFA->DFA :after ((NFA-inst NFA))
   (push 'NFA->after *debug*))
+
+
+
+
