@@ -1,10 +1,13 @@
 ;;;; lexer.asd
 
 (asdf:defsystem #:lexer
-  :description "Describe lexer here"
-  :author "Your Name <your.name@example.com>"
-  :license "Specify license here"
+  :description "A somewhat literal implementation of lexing components: NFA's and DFA's"
+  :author "Christopher H Cope <copecd@gmail.com>"
+  :license "BSD"
   :serial t
   :components ((:file "package")
+	       (:file "classes")
+	       (:file "fa-atomic-ops")
+	       (:file "push-fragment")
                (:file "lexer")))
 
