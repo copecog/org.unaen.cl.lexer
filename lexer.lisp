@@ -22,76 +22,28 @@
 
 (in-package #:lexer)
 
-;;; Class Definitions
-
-
 ;;; Q Σ Δ q₀ F   ε
 
-(defvar *debug* (list))
-
-;(defmethod NFA->DFA :around ((NFA-inst NFA))
-;  (push 'NFA->around *debug*)
-;  (call-next-method))
-
-;(defmethod NFA->DFA :around ((Q-inst Q))
-;  (push 'Q->around *debug*)
-;  (call-next-method))
-
-;(defmethod NFA->DFA :around ((Σ-inst Σ))
-;  (push 'Σ->around *debug*)
-;  (call-next-method))
-
-;(defmethod NFA->DFA :around ((Δ-inst Δ))
-;  (push 'Δ->around *debug*)
-;  (call-next-method))
-
-;(defmethod NFA->DFA :around ((q₀-inst q₀))
-;  (push 'q₀->around *debug*)
-;  (call-next-method))
-
-;(defmethod NFA->DFA :around ((F-inst F))
-;  (push 'F->around *debug*)
-;  (call-next-method))
-
-(defmethod NFA->DFA :before ((NFA-inst NFA))
-  (push 'NFA->before *debug*))
-
 (defmethod NFA->DFA :before ((Q-inst Q))
-  (push 'Q->before *debug*))
+  nil)
 
 (defmethod NFA->DFA :before ((Σ-inst Σ))
-  (push 'Σ->before *debug*))
+  nil)
 
 (defmethod NFA->DFA :before ((Δ-inst Δ))
-  (push 'Δ->before *debug*))
+  nil)
 
 (defmethod NFA->DFA :before ((q₀-inst q₀))
-  (push 'q₀->before *debug*))
+  nil)
 
 (defmethod NFA->DFA :before ((F-inst F))
-  (push 'F->before *debug*))
+  nil)
 
 (defmethod NFA->DFA ((NFA-inst NFA))
-  (push 'NFA->prime *debug*))
+  (let ((DFA-inst (make-instance 'DFA))	(states-map (make-instance 'Q)))
+    (with-slots ((nfa.Q Q) (nfa.Σ Σ) (nfa.Δ Δ) (nfa.q₀ q₀) (nfa.F F)) NFA-inst
+      (with-slots ((dfa.Q Q) (dfa.Σ Σ) (dfa.Δ Δ) (dfa.q₀ q₀) (dfa.F F)) DFA-inst
+	nil))))
 
-;(defmethod NFA->DFA :after ((F-inst F))
-;  (push 'F->after *debug*))
-
-;(defmethod NFA->DFA :after ((q₀-inst q₀))
-;  (push 'q₀->after *debug*))
-
-;(defmethod NFA->DFA :after ((Δ-inst Δ))
-;  (push 'Δ->after *debug*))
-
-;(defmethod NFA->DFA :after ((Σ-inst Σ))
-;  (push 'Σ->after *debug*))
-
-;(defmethod NFA->DFA :after ((Q-inst Q))
-;  (push 'Q->after *debug*))
-
-;(defmethod NFA->DFA :after ((NFA-inst NFA))
-;  (push 'NFA->after *debug*))
-
-
-
+		    
 

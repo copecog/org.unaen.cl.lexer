@@ -60,7 +60,9 @@
 (defclass q₀ ()
   ((q₀ :initarg :q₀
        :reader q₀
-       :documentation "An initial (or start) state q₀ ∈ Q.")))
+       :documentation "An initial (or start) state q₀ ∈ Q.")
+   (q₀-name :initarg :q₀-name
+	    :reader q₀-name)))
 
 ;;   The set F of final or accepting states. F is an array of the same size as Q
 ;; with the accepting states under the same respective indices as under Q.

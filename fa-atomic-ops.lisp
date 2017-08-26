@@ -95,9 +95,18 @@
 			       &key
 				 (start-p nil)
 			       &allow-other-keys)
-  (with-slots (q₀) q₀-instance
+  (with-slots (q₀-name) q₀-instance
     (when start-p
-      (setf q₀ state-name)))) ; If start state then set as start state.
+      (setf q₀-name state-name)))) ; If start state then set as start state.
+
+(defmethod push-state :after ((state-name string)
+			      (FA-instance FA)
+			      &key
+				(start-p nil)
+			      &allow-other-keys)
+  (with-slots (q₀ Δ) FA-instance
+    (when start-p
+      (setf q₀ (aref Δ (1- (fill-pointer Δ)))))))
 
 (defmethod push-state :before ((state-name string)
 			       (F-instance F)
@@ -117,6 +126,17 @@
 	    (1- (and (fill-pointer Q)
 		     (fill-pointer Δ)      ; (and quick consistency check)
 		     (fill-pointer F)))))) ; ...as well as the state number.
+
+(defmethod push-state :before ((states-list list)
+			       (Q-inst Q)
+			       &key &allow-other-keys)
+  (with-slots (Q) Q-inst
+    (vector-push-extend states-list Q)))
+
+(defmethod push-state ((states-list list)
+		       (Q-inst Q)
+		       &key &allow-other-keys)
+  Q-inst)
 
 
 (defmethod push-next-states ((states-tree list)
