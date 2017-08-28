@@ -24,26 +24,14 @@
 
 ;;; Q Σ Δ q₀ F   ε
 
-(defmethod NFA->DFA :before ((Q-inst Q))
-  nil)
-
-(defmethod NFA->DFA :before ((Σ-inst Σ))
-  nil)
-
-(defmethod NFA->DFA :before ((Δ-inst Δ))
-  nil)
-
-(defmethod NFA->DFA :before ((q₀-inst q₀))
-  nil)
-
-(defmethod NFA->DFA :before ((F-inst F))
-  nil)
-
-(defmethod NFA->DFA ((NFA-inst NFA))
-  (let ((DFA-inst (make-instance 'DFA))	(states-map (make-instance 'Q)))
-    (with-slots ((nfa.Q Q) (nfa.Σ Σ) (nfa.Δ Δ) (nfa.q₀ q₀) (nfa.F F)) NFA-inst
-      (with-slots ((dfa.Q Q) (dfa.Σ Σ) (dfa.Δ Δ) (dfa.q₀ q₀) (dfa.F F)) DFA-inst
-	nil))))
-
-		    
-
+(defmethod nfa->dfa ((nfa-inst nfa) &key &allow-other-keys)
+  (let ((debug (list))
+	(states-map (make-instance 'Q)))
+    (push-state (ε-closure (get-state (q₀-name nfa-inst) nfa-inst) nfa-inst) states-map)
+    (dolist (nfa-state (get-state 0 states-map) states-map)
+;      (push nfa-state debug))))
+      (dolist (transit-char (Σ-in-use nfa-inst))
+;	(push (list nfa-state transit-char) debug)))))
+	(dolist (next-state (get-transit nfa-state transit-char nfa-inst))
+;	  (push (list nfa-state transit-char '-> next-state) debug))))))
+	  (push-state (ε-closure next-state nfa-inst) states-map))))))

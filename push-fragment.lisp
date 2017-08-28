@@ -8,15 +8,15 @@
 
 (in-package #:lexer)
 
-
 ;;; Generic Function Prototypes
-(defgeneric push-fragment (regex-fragment-list FA &rest pass-forward-args)
+(defgeneric push-fragment (regex-fragment-tree NFA &rest pass-forward-args)
   (:documentation "Push new finite state automaton fragment onto FA by type."))
 
-(defgeneric push-fragment-2 (fragment-type specifications-list FA))
+(defgeneric push-fragment-2 (fragment-type specifications-list NFA))
 
 (defgeneric char-interval->list (char-start char-end))
 
+(defgeneric list->pairs (source-list))
 
 ;;; Method Definitions
 
@@ -47,7 +47,6 @@
 ;;                   NFA)
 ;;
 ;; ==> NFA fragment-literal-in fragment-literal-out
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-literal))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -85,7 +84,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA state-1-in state-n-out
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-ε))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -115,7 +113,6 @@
 ;;                       NFA)
 ;;
 ;; ==> NFA fragment-concat-in fragment-concat-out
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-concat))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -155,7 +152,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA fragment-or-in fragment-or-out
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-or))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -182,7 +178,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA fragment-star-in fragment-star-out
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-star))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -208,7 +203,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA state-begin state-end
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-plus))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -235,7 +229,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA state-begin state-end
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-interval))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -269,7 +262,6 @@
 ;;                      NFA)
 ;;
 ;; ==> NFA state-begin state-end
-
 (defmethod push-fragment-2 ((fragment-type (eql 'regex-optional))
 			    (argument-list list)
 			    (NFA-instance NFA))
@@ -282,7 +274,6 @@
 			   (list fragment-optional-in fragment-in)
 			   (list fragment-out fragment-optional-out))
 		     NFA-instance)))
-
 
 ;;;    push-fragment maps a simpler but lisp-like syntax for manually specifying
 ;;; regular expressions. This implies that the regular expression has been parsed and
@@ -379,23 +370,21 @@
 ;;          (opt (#\+ #\-))
 ;;          (plus (inter 0 9)))
 
-
 ;; [+-]? ( (([0-9]+.[0-9]∗|.[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+ )
-
-(defparameter *test-regex-tree* '(conc (opt (#\+ #\-))
-			               (or (conc (or (conc (plus (inter #\0 #\9))
-				  		           (#\.)
-					                   (star (inter #\0 #\9)))
-					             (conc (#\.)
-					                   (plus (inter #\0 #\9))))
-				                  (opt (conc (#\e #\E)
-					                     (opt (#\+ #\-))
-					                     (plus (inter #\0 #\9)))))
-			                    (conc (plus (inter #\0 #\9))
-			                          (#\e #\E)
-			                          (opt (#\+ #\-))
-			                          (plus (inter #\0 #\9))))))
-
+(defparameter *test-regex-tree*
+  '(conc (opt (#\+ #\-))
+         (or (conc (or (conc (plus (inter #\0 #\9))
+                             (#\.)
+                             (star (inter #\0 #\9)))
+	               (conc (#\.)
+			     (plus (inter #\0 #\9))))
+		   (opt (conc (#\e #\E)
+		              (opt (#\+ #\-))
+		              (plus (inter #\0 #\9)))))
+	     (conc (plus (inter #\0 #\9))
+	           (#\e #\E)
+	           (opt (#\+ #\-))
+	           (plus (inter #\0 #\9))))))
 
 (defmethod push-fragment ((regex-list list)
 			  (NFA-instance NFA)
@@ -405,7 +394,6 @@
 	(regex-arguments (cdr regex-list)))
     (apply #'push-fragment regex-operation NFA-instance regex-arguments)))
 
-;; literal a
 (defmethod push-fragment ((liter (eql 'liter))
 			  (NFA-inst NFA)
 			  &rest
@@ -424,7 +412,6 @@
   (push-fragment (cons 'liter (cons first-char pass-forward-args))
 		 NFA-inst))
 
-;; concatenate ab
 (defmethod push-fragment ((conc (eql 'conc))
 			  (NFA-inst NFA)
 			  &rest
@@ -439,7 +426,6 @@
 				       NFA-inst)
 		     NFA-inst)))
       
-;; or a|b
 (defmethod push-fragment ((or (eql 'or))
 			  (NFA-inst NFA)
 			  &rest
@@ -454,7 +440,6 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-;; Kleene star (zero or more) *
 (defmethod push-fragment ((star (eql 'star))
 			  (NFA-inst NFA)
 			  &rest
@@ -469,7 +454,6 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-;; plus (one or more) +
 (defmethod push-fragment ((plus (eql 'plus))
 			  (NFA-inst NFA)
 			  &rest
@@ -484,7 +468,6 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-;; interval (a|b|c|...|z) a-z
 (defmethod push-fragment ((inter (eql 'inter))
 			  (NFA-inst NFA)
 			  &rest
@@ -495,7 +478,7 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defun list->pairs (source-list)
+(defmethod list->pairs ((source-list list))
   (labels ((pairs-iter (old-list new-list)
 		       (if (second old-list)
 			   (pairs-iter (cddr old-list)
@@ -504,7 +487,6 @@
 			   new-list)))
 	  (pairs-iter source-list (list))))
   
-;; optional ?
 (defmethod push-fragment ((opt (eql 'opt))
 			  (NFA-inst NFA)
 			  &rest
@@ -519,4 +501,9 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-
+(defmethod regex-tree->nfa ((regex-tree list))
+  (multiple-value-bind (nfa-inst start-state end-state)
+      (push-fragment regex-tree (make-instance 'nfa))
+    (setf (slot-value nfa-inst 'q0-name) (get-state start-state nfa-inst))
+    (setf (slot-value nfa-inst 'q0) (get-Δ start-state nfa-inst))
+    nfa-inst))

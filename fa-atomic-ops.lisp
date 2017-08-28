@@ -8,7 +8,6 @@
 
 (in-package #:lexer)
 
-
 ;;; Generic Function Prototypes
 (defgeneric make-state-vector (size &key &allow-other-keys)
   (:documentation "Return the default chosen array type for states."))
@@ -33,7 +32,6 @@
 
 (defgeneric push-next-states (states-in-tree FA))
 
-
 ;;; Method Definitions
 (defmethod make-state-vector ((size integer) &key
 					       (initial-element nil)
@@ -45,19 +43,16 @@
 	      :adjustable adjustable
 	      :fill-pointer fill-pointer))
 
-
 ;;   The transitions are a hashtable that associates the literal next state
 ;; object with a character.
 (defmethod make-Δ ((Σ-type (eql 'cl-utf)))
   (make-hash-table :test 'eql)) ;eql for cl char's
-
 
 ;;   To initialize a state, we name the state using the name-preface
 ;; and the iterate.
 (defmethod make-state-name ((state-names-instance state-names))
   (with-slots (preface iterate) state-names-instance
     (format nil "~a~d" preface (1- (incf iterate)))))
-
 
 (defmethod push-state ((next (eql 'next))
 		       (FA-instance FA)
@@ -71,33 +66,31 @@
 	      :final-p final-p))
 
 (defmethod push-state ((state integer)
-		       (FA-instance FA)
+		       (FA-inst FA)
 		       &key &allow-other-keys)
-  (with-slots (Q) FA-instance
-    (values FA-instance (when (<= state (fill-pointer Q))
-			  state))))
+  (values FA-inst (when (<= state (fill-pointer (slot-value FA-inst 'Q)))
+		    state)))
 			  
 ;; All the :before methods I use to organize the assigns for the single push-state operation.
 (defmethod push-state :before ((state-name string)
-			       (Q-instance Q)
+			       (Q-inst Q)
 			       &key &allow-other-keys)
-  (with-slots (Q) Q-instance
-    (vector-push-extend state-name Q))) ; Push our state-name onto our vector of state names.
+  (vector-push-extend state-name (slot-value Q-inst 'Q)))
+					; Push our state-name onto our vector of state names.
 
 (defmethod push-state :before ((state-name string)
-			       (Δ-instance Δ)
+			       (Δ-inst Δ)
 			       &key &allow-other-keys)
-  (with-slots (Σ Δ) Δ-instance
+  (with-slots (Σ Δ) Δ-inst
     (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
 
 (defmethod push-state :before ((state-name string)
-			       (q₀-instance q₀)
+			       (q₀-inst q₀)
 			       &key
 				 (start-p nil)
 			       &allow-other-keys)
-  (with-slots (q₀-name) q₀-instance
-    (when start-p
-      (setf q₀-name state-name)))) ; If start state then set as start state.
+  (when start-p
+    (setf (slot-value q₀-inst 'q₀-name) state-name))) ; If start state then set as start state.
 
 (defmethod push-state :after ((state-name string)
 			      (FA-instance FA)
@@ -130,14 +123,12 @@
 (defmethod push-state :before ((states-list list)
 			       (Q-inst Q)
 			       &key &allow-other-keys)
-  (with-slots (Q) Q-inst
-    (vector-push-extend states-list Q)))
+  (vector-push-extend states-list (slot-value Q-inst 'Q)))
 
 (defmethod push-state ((states-list list)
 		       (Q-inst Q)
 		       &key &allow-other-keys)
   Q-inst)
-
 
 (defmethod push-next-states ((states-tree list)
 		           (FA-instance FA))
@@ -158,37 +149,35 @@
 			   (FA-instance FA))
   next)
 
-
-;;; I don't like how the work for push-transit is organized...
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (transit-char character)
-				 (Δ-instance Δ))
-  (with-slots (Δ) Δ-instance
-    (let ((Δ.state-A (aref Δ state-A)))
-      (push state-B (gethash transit-char Δ.state-A nil)))))
+				 (Δ-inst Δ))
+  (push state-B	(gethash transit-char
+			 (aref (slot-value Δ-inst 'Δ)
+			       state-A)
+			 nil)))
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (ε (eql 'ε))
-				 (NFA-instance NFA))
-  (with-slots (Δ) NFA-instance
-    (let ((Δ.state-A (aref Δ state-A)))
-      (push state-B (gethash ε Δ.state-A nil)))))
+				 (NFA-inst NFA))
+  (push state-B (gethash ε
+			 (aref (slot-value NFA-inst 'Δ)
+			       state-A)
+			 nil)))
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
-				 transit-char
-				 (Σ-instance Σ))
-  (with-slots (Σ-in-use) Σ-instance
-    (pushnew transit-char Σ-in-use)))
+				 (transit-char character)
+				 (Σ-inst Σ))
+  (pushnew transit-char (slot-value Σ-inst 'Σ-in-use)))
 
 (defmethod push-transit (state-A
 			 state-B
 			 transit-char
 			 (FA-instance FA))
   FA-instance)
-
 
 ;; delete-transit used during testing...
 (defmethod delete-transit :before ((state-A integer)
@@ -211,12 +200,8 @@
 			   (FA-instance FA))
   FA-instance)
 
-
 (defun get-transit-2 (state transit-char Δ-inst)
-  (with-slots (Δ) Δ-inst
-    (let* ((Δ.state (aref Δ state))
-	   (Δ.state.transit-char.states (gethash transit-char Δ.state)))
-      Δ.state.transit-char.states)))
+  (gethash transit-char (aref (slot-value Δ-inst 'Δ) state)))
 
 (defmethod get-transit ((state integer)
 			(transit-char character)
@@ -231,7 +216,6 @@
     (dolist (state states-in states-out)
       (setf states-out (nunion (get-transit state transit-char Δ-inst)
 			       states-out)))))
-
 
 ;; ==> (state-integer-a state-integer-b ... state-integer-n)
 (defmethod ε-closure ((state integer)
@@ -249,7 +233,21 @@
 			 :transit-char transit-char))
 	states-out)))
 
+(defmethod get-state ((state-name string)
+		      (Q-inst Q))
+  (find-name-iter state-name Q-inst 0))
 
+(defmethod get-state ((state integer)
+		      (Q-inst Q))
+  (aref (Q Q-inst) state))
 
+(defun find-name-iter (state-name Q-inst cell-iter)
+  (if (< cell-iter (fill-pointer (Q Q-inst)))
+      (if (equal state-name
+		 (aref (Q Q-inst) cell-iter))
+	  cell-iter
+	  (find-name-iter state-name Q-inst (1+ cell-iter)))))
 
-
+(defmethod get-Δ ((state integer)
+		  (Δ-inst Δ))
+  (aref (Δ Δ-inst) state))
