@@ -384,7 +384,7 @@
 	     (conc (plus (inter #\0 #\9))
 	           (#\e #\E)
 	           (opt (#\+ #\-))
-	           (plus (inter #\0 #\9))))))
+	           (plus (inter #\0 #\9))))) )
 
 (defmethod push-fragment ((regex-list list)
 			  (NFA-instance NFA)
@@ -504,6 +504,5 @@
 (defmethod regex-tree->nfa ((regex-tree list))
   (multiple-value-bind (nfa-inst start-state end-state)
       (push-fragment regex-tree (make-instance 'nfa))
-    (setf (slot-value nfa-inst 'q0-name) (get-state start-state nfa-inst))
-    (setf (slot-value nfa-inst 'q0) (get-Δ start-state nfa-inst))
+    (setf (slot-value nfa-inst 'q0) (get-state start-state nfa-inst))
     nfa-inst))

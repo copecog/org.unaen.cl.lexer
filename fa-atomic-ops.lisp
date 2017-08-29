@@ -54,101 +54,86 @@
   (with-slots (preface iterate) state-names-instance
     (format nil "~a~d" preface (1- (incf iterate)))))
 
-(defmethod push-state ((next (eql 'next))
-		       (FA-instance FA)
-		       &key
-			 (start-p nil)
-			 (final-p nil)
+;; Normal method for extending to a new (next) state.
+(defmethod push-state ((next (eql 'next)) (FA-inst FA) &key
+							 (start-p nil)
+							 (final-p nil)
 		       &allow-other-keys)
-  (push-state (make-state-name (dsn FA-instance))
-	      FA-instance
-	      :start-p start-p
-	      :final-p final-p))
+  (push-state (make-state-name (dsn FA-inst))
+	      FA-inst :start-p start-p :final-p final-p))
 
-(defmethod push-state ((state integer)
-		       (FA-inst FA)
-		       &key &allow-other-keys)
+;; Method to pass back integer for a new state that has already been pushed.
+(defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
   (values FA-inst (when (<= state (fill-pointer (slot-value FA-inst 'Q)))
 		    state)))
 			  
-;; All the :before methods I use to organize the assigns for the single push-state operation.
-(defmethod push-state :before ((state-name string)
-			       (Q-inst Q)
-			       &key &allow-other-keys)
+;; Methods specialized on the state being a name string.
+(defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
   (vector-push-extend state-name (slot-value Q-inst 'Q)))
-					; Push our state-name onto our vector of state names.
 
-(defmethod push-state :before ((state-name string)
-			       (Δ-inst Δ)
-			       &key &allow-other-keys)
+(defmethod push-state :before ((state-name string) (Δ-inst Δ) &key &allow-other-keys)
   (with-slots (Σ Δ) Δ-inst
     (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
 
-(defmethod push-state :before ((state-name string)
-			       (q₀-inst q₀)
-			       &key
-				 (start-p nil)
-			       &allow-other-keys)
+(defmethod push-state :before ((state-name string) (q₀-inst q₀) &key (start-p nil) &allow-other-keys)
   (when start-p
-    (setf (slot-value q₀-inst 'q₀-name) state-name))) ; If start state then set as start state.
+    (setf (slot-value q₀-inst 'q₀) state-name))) ; If start state then set as start state.
 
-(defmethod push-state :after ((state-name string)
-			      (FA-instance FA)
-			      &key
-				(start-p nil)
-			      &allow-other-keys)
-  (with-slots (q₀ Δ) FA-instance
-    (when start-p
-      (setf q₀ (aref Δ (1- (fill-pointer Δ)))))))
-
-(defmethod push-state :before ((state-name string)
-			       (F-instance F)
-			       &key
-				 (final-p nil)
-			       &allow-other-keys)
-  (with-slots (F) F-instance
+(defmethod push-state :before ((state-name string) (F-inst F) &key (final-p nil) &allow-other-keys)
+  (with-slots (F) F-inst
     (if final-p
 	(vector-push-extend state-name F) ;   Either it is a final state
 	(vector-push-extend nil F))))     ; or it is not - so empty space pushed.
 
-(defmethod push-state ((state-name string)
-		       (FA-instance FA)
-		       &key &allow-other-keys)
+(defmethod push-state ((state-name string) (FA-instance FA) &key &allow-other-keys)
   (with-slots (Q Δ F) FA-instance
     (values FA-instance                    ; Return mutated FA after all said and done...
 	    (1- (and (fill-pointer Q)
 		     (fill-pointer Δ)      ; (and quick consistency check)
 		     (fill-pointer F)))))) ; ...as well as the state number.
 
-(defmethod push-state :before ((states-list list)
-			       (Q-inst Q)
-			       &key &allow-other-keys)
-  (vector-push-extend states-list (slot-value Q-inst 'Q)))
+;; methods on state lists for transitions between finite automata
+(defmethod push-state :before ((state-list list) (Q-inst Q) &key &allow-other-keys)
+  (vector-push-extend state-list (slot-value Q-inst 'Q)))
 
-(defmethod push-state ((states-list list)
-		       (Q-inst Q)
-		       &key &allow-other-keys)
-  Q-inst)
+(defmethod push-state :before ((state-list list) (Δ-inst Δ) &key &allow-other-keys)
+  (with-slots (Σ Δ) Δ-inst
+    (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
 
-(defmethod push-next-states ((states-tree list)
-		           (FA-instance FA))
+(defmethod push-state :before ((state-list list) (q₀-inst q₀) &key (start-p nil) &allow-other-keys)
+  (when start-p
+    (setf (slot-value q₀-inst 'q₀) state-list))) ; If start state then set as start state.
+
+(defmethod push-state :before ((state-list list) (F-inst F) &key (final-p nil) &allow-other-keys)
+  (with-slots (F) F-inst
+    (if final-p
+	(vector-push-extend state-list F) ;   Either it is a final state
+	(vector-push-extend nil F))))     ; or it is not - so empty space pushed.
+
+(defmethod push-state ((state-list list) (FA-inst FA) &key &allow-other-keys)
+  (with-slots (Q Δ F) FA-inst
+    (values FA-inst                        ; Return mutated FA after all said and done...
+	    (1- (and (fill-pointer Q)
+		     (fill-pointer Δ)      ; (and quick consistency check)
+		     (fill-pointer F)))))) ; ...as well as the state number.
+
+;;; Cons up a new parameter list with all of the new states "solidified".
+(defmethod push-next-states ((states-tree list) (FA-instance FA))
   (cons (push-next-states (car states-tree) FA-instance)
         (push-next-states (cdr states-tree) FA-instance)))
 
-(defmethod push-next-states ((next (eql 'next))
-			   (FA-instance FA))
+(defmethod push-next-states ((next (eql 'next)) (FA-instance FA))
   (multiple-value-bind (FA-instance new-state)
       (push-state 'next FA-instance)
     new-state))
 
-(defmethod push-next-states ((next (eql nil))
-			   (FA-instance FA))
+(defmethod push-next-states ((next (eql nil)) (FA-instance FA))
   nil)
 
-(defmethod push-next-states (next
-			   (FA-instance FA))
+(defmethod push-next-states (next (FA-instance FA))
   next)
 
+;;; Pushing the transitions on characters to other states.
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (transit-char character)
@@ -173,10 +158,7 @@
 				 (Σ-inst Σ))
   (pushnew transit-char (slot-value Σ-inst 'Σ-in-use)))
 
-(defmethod push-transit (state-A
-			 state-B
-			 transit-char
-			 (FA-instance FA))
+(defmethod push-transit (state-A state-B transit-char (FA-instance FA))
   FA-instance)
 
 ;; delete-transit used during testing...
@@ -194,12 +176,10 @@
 	      (remhash transit-char Δ.state-A)))
 	(remhash transit-char Δ.state-A)))))
 
-(defmethod delete-transit (state-A
-			   state-B
-			   transit-char
-			   (FA-instance FA))
+(defmethod delete-transit (state-A state-B transit-char (FA-instance FA))
   FA-instance)
 
+;; Looking up transitions.
 (defun get-transit-2 (state transit-char Δ-inst)
   (gethash transit-char (aref (slot-value Δ-inst 'Δ) state)))
 
@@ -233,9 +213,14 @@
 			 :transit-char transit-char))
 	states-out)))
 
+;; integer -> name;  name -> integer;  list -> integer 
 (defmethod get-state ((state-name string)
 		      (Q-inst Q))
   (find-name-iter state-name Q-inst 0))
+
+(defmethod get-state ((state-list list)
+		      (Q-inst Q))
+  (find-name-iter state-list Q-inst 0))
 
 (defmethod get-state ((state integer)
 		      (Q-inst Q))
@@ -248,6 +233,21 @@
 	  cell-iter
 	  (find-name-iter state-name Q-inst (1+ cell-iter)))))
 
+;; For some debugging.
 (defmethod get-Δ ((state integer)
 		  (Δ-inst Δ))
   (aref (Δ Δ-inst) state))
+
+(defmethod get-all-transit (transit-char
+			    (Δ-inst Δ))
+  (do ((iter 0 (1+ iter))
+       (state-list (list) (push (append (list iter '->) (get-transit-2 iter transit-char Δ-inst))
+				state-list)))
+      ((>= iter (fill-pointer (Δ Δ-inst))) state-list)))
+
+(defmethod push-state-new ((state-list list)
+			   (FA-inst FA))
+  (or (get-state state-list FA-inst)
+      (multiple-value-bind (FA-inst state-int)
+	  (push-state state-list FA-inst)
+	state-int)))
