@@ -5,6 +5,7 @@
   :author "Christopher H Cope <copecd@gmail.com>"
   :license "BSD"
   :serial t
+  :depends-on (#:alexandria)
   :components ((:file "package")
 	       (:file "classes")
 	       (:file "fa-atomic-ops")

@@ -24,21 +24,38 @@
 
 ;;; Q Σ Δ q₀ F   ε
 
-(defun NFA->DFA-iter (NFA-inst Q-map state-iter)
-  (if (< state-iter (fill-pointer (Q Q-map)))
-      (progn
-	(dolist (NFA-state (get-state state-iter Q-map))
-	  (dolist (transit-char (Σ-in-use NFA-inst))
-	    (dolist (NFA-transit-state (get-transit NFA-state transit-char NFA-inst))
-	      (push-transit state-iter
-			    (push-state-new (ε-closure NFA-transit-state
-						       NFA-inst)
-					    Q-map)
-			    transit-char
-			    Q-map))))
-	(NFA->DFA-iter NFA-inst Q-map (1+ state-iter)))
-      Q-map))
+(defparameter *test-regex-tree-2*
+  '(conc (#\a #\b #\c)
+         (#\1 #\2 #\3)))
 
+(defparameter *test-regex-figure-2.5*
+  '(conc (star (#\a #\b))
+         (#\a)
+         (#\c)) )
+
+;;    Find all states we can transition to and perform ε-closure on them.
+;;    This set of states is a single state in our DFA--If it is a new set, then push this set
+;; onto our Q-map (states map) as a new state.
+;;    Set a new transition on the same transition character from the current DFA state
+;; (state-iter) to the recently discovered DFA state--although, not necessarily the first
+;; time it was discovered (wrapped up in push-state-new).
+(defun NFA->DFA-iter (NFA-inst Q-map state-iter)
+  (cond ((< state-iter (fill-pointer (Q Q-map)))
+	 (dolist (transit-char (Σ-in-use NFA-inst))
+	   (push-transit state-iter
+			 (push-state-new (ε-closure (mappend #'(lambda (state)
+								 (get-transit state
+									      transit-char
+									      NFA-inst))
+							     (aref (Q Q-map) state-iter))
+						    NFA-inst)
+					 Q-map)
+			 transit-char
+			 Q-map))
+	 (NFA->DFA-iter NFA-inst Q-map (1+ state-iter)))
+	(t Q-map)))
+
+;; Make a states map, each DFA state containing a list (set) of NFA states.
 (defmethod NFA->DFA-Q-map ((NFA-inst NFA))
   (let ((Q-map (make-instance 'FA)))
     (push-state (ε-closure (get-state (q₀ NFA-inst)

@@ -18,6 +18,8 @@
 
 (defgeneric list->pairs (source-list))
 
+(defgeneric regex-tree->nfa (regex-expr-tree))
+
 ;;; Method Definitions
 
 ;;;    push-fragment-2 is the work-horse: it actually processes lists of states and/or
@@ -501,8 +503,10 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod regex-tree->nfa ((regex-tree list))
+;; I need to make push-fragment accept :start-p and :end-p
+(defmethod regex-tree->nfa ((regex-expr-tree list))
   (multiple-value-bind (nfa-inst start-state end-state)
-      (push-fragment regex-tree (make-instance 'nfa))
+      (push-fragment regex-expr-tree (make-instance 'nfa))
     (setf (slot-value nfa-inst 'q0) (get-state start-state nfa-inst))
-    nfa-inst))
+    (setf (aref (F nfa-inst) end-state) (get-state end-state nfa-inst))
+    (values nfa-inst start-state end-state)))

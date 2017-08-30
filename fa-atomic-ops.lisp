@@ -8,6 +8,7 @@
 
 (in-package #:lexer)
 
+
 ;;; Generic Function Prototypes
 (defgeneric make-state-vector (size &key &allow-other-keys)
   (:documentation "Return the default chosen array type for states."))
@@ -21,6 +22,8 @@
 (defgeneric push-state (state finite-automaton &key &allow-other-keys)
   (:documentation "Push a state into the finite automaton."))
 
+(defgeneric push-next-states (states-in-tree FA))
+
 (defgeneric push-transit (state-A state-B transit-char FA)
   (:documentation "Push a single transition on transit-char from state-A to state-B in FA."))
 
@@ -30,7 +33,41 @@
 (defgeneric get-transit (state transit-char Δ)
   (:documentation "Get list of states to transition to on transition character."))
 
-(defgeneric push-next-states (states-in-tree FA))
+(defgeneric ε-closure (state NFA))
+
+(defgeneric get-state (state Q))
+
+(defgeneric find-name-equal (thing1 thing2))
+
+(defgeneric get-Δ (state Δ))
+
+(defgeneric get-all-transit (transit-char Δ))
+
+(defgeneric push-state-new (state FA))
+
+
+;;; Function Definitions
+(defun get-transit-2 (state transit-char Δ-inst)
+  (gethash transit-char (aref (slot-value Δ-inst 'Δ) state)))
+
+(defun ε-closure-2 (states-in states-out Δ-inst &key (transit-char 'ε))
+  (let ((state (pop states-in)))
+    (if state
+	(if (member state states-out)
+	    (ε-closure-2 states-in states-out Δ-inst :transit-char transit-char)
+	    (ε-closure-2 (append states-in (get-transit-2 state transit-char Δ-inst))
+			 (push state states-out)
+			 Δ-inst
+			 :transit-char transit-char))
+	states-out)))
+
+(defun find-name-iter (state-name Q-inst cell-iter)
+  (if (< cell-iter (fill-pointer (Q Q-inst)))
+      (if (find-name-equal state-name
+			   (aref (Q Q-inst) cell-iter))
+	  cell-iter
+	  (find-name-iter state-name Q-inst (1+ cell-iter)))))
+
 
 ;;; Method Definitions
 (defmethod make-state-vector ((size integer) &key
@@ -66,6 +103,9 @@
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
   (values FA-inst (when (<= state (fill-pointer (slot-value FA-inst 'Q)))
 		    state)))
+
+(defmethod push-state ((state (eql nil)) (FA-inst FA) &key &allow-other-keys)
+  (values FA-inst nil))
 			  
 ;; Methods specialized on the state being a name string.
 (defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
@@ -138,19 +178,19 @@
 				 (state-B integer)
 				 (transit-char character)
 				 (Δ-inst Δ))
-  (push state-B	(gethash transit-char
-			 (aref (slot-value Δ-inst 'Δ)
-			       state-A)
-			 nil)))
+  (pushnew state-B (gethash transit-char
+			    (aref (slot-value Δ-inst 'Δ)
+				  state-A)
+			    nil)))
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
 				 (ε (eql 'ε))
 				 (NFA-inst NFA))
-  (push state-B (gethash ε
-			 (aref (slot-value NFA-inst 'Δ)
-			       state-A)
-			 nil)))
+  (pushnew state-B (gethash ε
+			    (aref (slot-value NFA-inst 'Δ)
+				  state-A)
+			    nil)))
 
 (defmethod push-transit :before ((state-A integer)
 				 (state-B integer)
@@ -180,9 +220,6 @@
   FA-instance)
 
 ;; Looking up transitions.
-(defun get-transit-2 (state transit-char Δ-inst)
-  (gethash transit-char (aref (slot-value Δ-inst 'Δ) state)))
-
 (defmethod get-transit ((state integer)
 			(transit-char character)
 			(Δ-inst Δ))
@@ -202,16 +239,9 @@
 		      (NFA-inst NFA))
   (ε-closure-2 (list state) (list) NFA-inst))
 
-(defun ε-closure-2 (states-in states-out Δ-inst &key (transit-char 'ε))
-  (let ((state (pop states-in)))
-    (if state
-	(if (member state states-out)
-	    (ε-closure-2 states-in states-out Δ-inst :transit-char transit-char)
-	    (ε-closure-2 (append states-in (get-transit-2 state transit-char Δ-inst))
-			 (push state states-out)
-			 Δ-inst
-			 :transit-char transit-char))
-	states-out)))
+(defmethod ε-closure ((states list)
+		      (NFA-inst NFA))
+  (ε-closure-2 states (list) NFA-inst))
 
 ;; integer -> name;  name -> integer;  list -> integer 
 (defmethod get-state ((state-name string)
@@ -226,13 +256,18 @@
 		      (Q-inst Q))
   (aref (Q Q-inst) state))
 
-(defun find-name-iter (state-name Q-inst cell-iter)
-  (if (< cell-iter (fill-pointer (Q Q-inst)))
-      (if (equal state-name
-		 (aref (Q Q-inst) cell-iter))
-	  cell-iter
-	  (find-name-iter state-name Q-inst (1+ cell-iter)))))
+(defmethod get-state ((state (eql nil))
+		      (Q-inst Q))
+  nil)
 
+(defmethod find-name-equal ((thing1 string)
+			    (thing2 string))
+  (equal thing1 thing2))
+
+(defmethod find-name-equal ((thing1 list)
+			    (thing2 list))
+  (set-equal thing1 thing2))
+    
 ;; For some debugging.
 (defmethod get-Δ ((state integer)
 		  (Δ-inst Δ))
@@ -251,3 +286,7 @@
       (multiple-value-bind (FA-inst state-int)
 	  (push-state state-list FA-inst)
 	state-int)))
+
+(defmethod push-state-new ((state-list (eql nil))
+			   (FA-inst FA))
+  nil)
