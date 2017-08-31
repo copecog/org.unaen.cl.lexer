@@ -8,17 +8,19 @@
 
 (in-package #:lexer)
 
+
 ;;; Generic Function Prototypes
+(defgeneric push-fragment-2 (fragment-type specifications-list NFA))
+
 (defgeneric push-fragment (regex-fragment-tree NFA &rest pass-forward-args)
   (:documentation "Push new finite state automaton fragment onto FA by type."))
-
-(defgeneric push-fragment-2 (fragment-type specifications-list NFA))
 
 (defgeneric char-interval->list (char-start char-end))
 
 (defgeneric list->pairs (source-list))
 
 (defgeneric regex-tree->nfa (regex-expr-tree))
+
 
 ;;; Method Definitions
 
@@ -246,12 +248,6 @@
 							       (second interval))))))		     
 		     NFA-instance)))
 
-(defmethod char-interval->list ((char1 character) (char2 character))
-  (when (char< char1 char2)
-    (do ((char-iter char1 (code-char (1+ (char-code char-iter))))
-	 (char-list (list) (push char-iter char-list)))
-	((char> char-iter char2) (nreverse char-list)))))
-
 ;; (push-fragment-2 'regex-optional
 ;;                  '((fragment-optional-in fragment-optional-out)
 ;;                    (fragment-in fragment-out))
@@ -373,20 +369,20 @@
 ;;          (plus (inter 0 9)))
 
 ;; [+-]? ( (([0-9]+.[0-9]∗|.[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+ )
-(defparameter *test-regex-tree*
-  '(conc (opt (#\+ #\-))
-         (or (conc (or (conc (plus (inter #\0 #\9))
-                             (#\.)
-                             (star (inter #\0 #\9)))
-	               (conc (#\.)
-			     (plus (inter #\0 #\9))))
-		   (opt (conc (#\e #\E)
-		              (opt (#\+ #\-))
-		              (plus (inter #\0 #\9)))))
-	     (conc (plus (inter #\0 #\9))
-	           (#\e #\E)
-	           (opt (#\+ #\-))
-	           (plus (inter #\0 #\9))))) )
+;;(defparameter *test-regex-tree*
+;;  '(conc (opt (#\+ #\-))
+;;         (or (conc (or (conc (plus (inter #\0 #\9))
+;;                             (#\.)
+;;                             (star (inter #\0 #\9)))
+;;	               (conc (#\.)
+;;			     (plus (inter #\0 #\9))))
+;;		   (opt (conc (#\e #\E)
+;;		              (opt (#\+ #\-))
+;;		              (plus (inter #\0 #\9)))))
+;;	     (conc (plus (inter #\0 #\9))
+;;	           (#\e #\E)
+;;	           (opt (#\+ #\-))
+;;	           (plus (inter #\0 #\9))))) )
 
 (defmethod push-fragment ((regex-list list)
 			  (NFA-instance NFA)
@@ -480,15 +476,6 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod list->pairs ((source-list list))
-  (labels ((pairs-iter (old-list new-list)
-		       (if (second old-list)
-			   (pairs-iter (cddr old-list)
-				       (push (list (first old-list) (second old-list))
-					     new-list))
-			   new-list)))
-	  (pairs-iter source-list (list))))
-  
 (defmethod push-fragment ((opt (eql 'opt))
 			  (NFA-inst NFA)
 			  &rest
@@ -502,6 +489,21 @@
 						(list (list frag-begin frag-end))))
 				       NFA-inst)
 		     NFA-inst)))
+
+(defmethod char-interval->list ((char1 character) (char2 character))
+  (when (char< char1 char2)
+    (do ((char-iter char1 (code-char (1+ (char-code char-iter))))
+	 (char-list (list) (push char-iter char-list)))
+	((char> char-iter char2) (nreverse char-list)))))
+
+(defmethod list->pairs ((source-list list))
+  (labels ((pairs-iter (old-list new-list)
+		       (if (second old-list)
+			   (pairs-iter (cddr old-list)
+				       (push (list (first old-list) (second old-list))
+					     new-list))
+			   new-list)))
+	  (pairs-iter source-list (list))))
 
 ;; I need to make push-fragment accept :start-p and :end-p
 (defmethod regex-tree->nfa ((regex-expr-tree list))

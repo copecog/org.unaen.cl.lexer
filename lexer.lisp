@@ -24,6 +24,21 @@
 
 ;;; Q Σ Δ q₀ F   ε
 
+(defparameter *test-regex-tree*
+  '(conc (opt (#\+ #\-))
+         (or (conc (or (conc (plus (inter #\0 #\9))
+                             (#\.)
+                             (star (inter #\0 #\9)))
+	               (conc (#\.)
+			     (plus (inter #\0 #\9))))
+		   (opt (conc (#\e #\E)
+		              (opt (#\+ #\-))
+		              (plus (inter #\0 #\9)))))
+	     (conc (plus (inter #\0 #\9))
+	           (#\e #\E)
+	           (opt (#\+ #\-))
+	           (plus (inter #\0 #\9))))) )
+
 (defparameter *test-regex-tree-2*
   '(conc (#\a #\b #\c)
          (#\1 #\2 #\3)))
@@ -43,20 +58,28 @@
   (cond ((< state-iter (fill-pointer (Q Q-map)))
 	 (dolist (transit-char (Σ-in-use NFA-inst))
 	   (push-transit state-iter
-			 (push-state-new (ε-closure (mappend #'(lambda (state)
-								 (get-transit state
+			 (push-state-new (ε-closure (mappend #'(lambda (x)
+								 (get-transit x
 									      transit-char
 									      NFA-inst))
 							     (aref (Q Q-map) state-iter))
 						    NFA-inst)
-					 Q-map)
+					 Q-map
+					 :final-p (is-NFA-final-p (F NFA-inst)))
 			 transit-char
 			 Q-map))
 	 (NFA->DFA-iter NFA-inst Q-map (1+ state-iter)))
 	(t Q-map)))
 
+;; Part of hack to check final states when converting NFA to DFA.
+(defun is-NFA-final-p (states-final)
+  #'(lambda (states-check)
+      (reduce #'(lambda (x y) (or x y))
+	      states-check
+	      :key #'(lambda (x) (aref states-final x)))))
+
 ;; Make a states map, each DFA state containing a list (set) of NFA states.
-(defmethod NFA->DFA-Q-map ((NFA-inst NFA))
+(defmethod NFA->DFA-map ((NFA-inst NFA))
   (let ((Q-map (make-instance 'FA)))
     (push-state (ε-closure (get-state (q₀ NFA-inst)
 				      NFA-inst)

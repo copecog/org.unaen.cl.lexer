@@ -43,30 +43,38 @@
 
 (defgeneric get-all-transit (transit-char Δ))
 
-(defgeneric push-state-new (state FA))
+(defgeneric push-state-new (state FA &key &allow-other-keys))
 
 
 ;;; Function Definitions
 (defun get-transit-2 (state transit-char Δ-inst)
   (gethash transit-char (aref (slot-value Δ-inst 'Δ) state)))
 
-(defun ε-closure-2 (states-in states-out Δ-inst &key (transit-char 'ε))
+(defun ε-closure-2 (states-in states-out Δ-inst transit-char)
   (let ((state (pop states-in)))
     (if state
 	(if (member state states-out)
-	    (ε-closure-2 states-in states-out Δ-inst :transit-char transit-char)
+	    (ε-closure-2 states-in states-out Δ-inst transit-char)
 	    (ε-closure-2 (append states-in (get-transit-2 state transit-char Δ-inst))
 			 (push state states-out)
 			 Δ-inst
-			 :transit-char transit-char))
+			 transit-char))
 	states-out)))
 
-(defun find-name-iter (state-name Q-inst cell-iter)
-  (if (< cell-iter (fill-pointer (Q Q-inst)))
+(defun find-name-iter (state-name Q cell-iter)
+  (if (< cell-iter (fill-pointer Q))
       (if (find-name-equal state-name
-			   (aref (Q Q-inst) cell-iter))
+			   (aref Q cell-iter))
 	  cell-iter
-	  (find-name-iter state-name Q-inst (1+ cell-iter)))))
+	  (find-name-iter state-name Q (1+ cell-iter)))))
+
+(defun truth (ignored-var)
+  (declare (ignore ignored-var))
+  t)
+
+(defun false (ignored-var)
+  (declare (ignore ignored-var))
+  nil)
 
 
 ;;; Method Definitions
@@ -237,20 +245,20 @@
 ;; ==> (state-integer-a state-integer-b ... state-integer-n)
 (defmethod ε-closure ((state integer)
 		      (NFA-inst NFA))
-  (ε-closure-2 (list state) (list) NFA-inst))
+  (ε-closure-2 (list state) (list) NFA-inst 'ε))
 
 (defmethod ε-closure ((states list)
 		      (NFA-inst NFA))
-  (ε-closure-2 states (list) NFA-inst))
+  (ε-closure-2 states (list) NFA-inst 'ε))
 
 ;; integer -> name;  name -> integer;  list -> integer 
 (defmethod get-state ((state-name string)
 		      (Q-inst Q))
-  (find-name-iter state-name Q-inst 0))
+  (find-name-iter state-name (Q Q-inst) 0))
 
 (defmethod get-state ((state-list list)
 		      (Q-inst Q))
-  (find-name-iter state-list Q-inst 0))
+  (find-name-iter state-list (Q Q-inst) 0))
 
 (defmethod get-state ((state integer)
 		      (Q-inst Q))
@@ -259,6 +267,10 @@
 (defmethod get-state ((state (eql nil))
 		      (Q-inst Q))
   nil)
+
+(defmethod find-name-equal ((thing1 integer)
+			    (thing2 integer))
+  (equal thing1 thing2))
 
 (defmethod find-name-equal ((thing1 string)
 			    (thing2 string))
@@ -281,12 +293,17 @@
       ((>= iter (fill-pointer (Δ Δ-inst))) state-list)))
 
 (defmethod push-state-new ((state-list list)
-			   (FA-inst FA))
+			   (FA-inst FA)
+			   &key
+			     (final-p #'false)
+			   &allow-other-keys)
   (or (get-state state-list FA-inst)
       (multiple-value-bind (FA-inst state-int)
-	  (push-state state-list FA-inst)
+	  (push-state state-list FA-inst :final-p (funcall final-p state-list))
+	(declare (ignore FA-inst))
 	state-int)))
 
 (defmethod push-state-new ((state-list (eql nil))
-			   (FA-inst FA))
+			   (FA-inst FA)
+			   &key &allow-other-keys)
   nil)
