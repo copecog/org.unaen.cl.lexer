@@ -101,12 +101,12 @@
 
 ;; Normal method for extending to a new (next) state.
 (defmethod push-state ((next (eql 'next)) (FA-inst FA) &key
-							 (delta-p t)
+							 (Δ-p t)
 							 (start-p nil)
 							 (final-p nil)
 		       &allow-other-keys)
   (push-state (make-state-name (dsn FA-inst))
-	      FA-inst :delta-p delta-p :start-p start-p :final-p final-p))
+	      FA-inst :Δ-p Δ-p :start-p start-p :final-p final-p))
 
 ;; Method to pass back integer for a new state that has already been pushed.
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
@@ -120,10 +120,9 @@
 (defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
   (vector-push-extend state-name (slot-value Q-inst 'Q)))
 
-(defmethod push-state :before ((state-name string) (Δ-inst Δ) &key (delta-p t) &allow-other-keys)
-  (when delta-p
+(defmethod push-state :before ((state-name string) (Δ-inst Δ) &key (Δ-p t) &allow-other-keys)
+  (when Δ-p
     (with-slots (Σ Δ) Δ-inst
-      (push (list 'extending-delta) *debug*)
       (vector-push-extend (make-Δ Σ) Δ)))) ; Extend Δ for state-name.
 
 (defmethod push-state :before ((state-name string) (q₀-inst q₀) &key (start-p nil) &allow-other-keys)

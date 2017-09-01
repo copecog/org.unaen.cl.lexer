@@ -60,7 +60,8 @@
 								 (get-transit x
 									      transit-char
 									      NFA-inst))
-							     (aref (Q Q-map) state-iter))
+							     (aref (Q Q-map)
+								   state-iter))
 						    NFA-inst)
 					 Q-map
 					 :final-p (is-NFA-final-p (F NFA-inst)))
@@ -90,23 +91,54 @@
 
 ;; (Q Σ Σ-in-use Δ q₀ F dsn)
 (defmethod DFA-map->DFA ((DFA-map DFA))
-  (when (= (fill-pointer (Q DFA-map))
-	   (fill-pointer (Δ DFA-map))
-	   (fill-pointer (F DFA-map))) ;quick sanity check
-    (let ((DFA-inst (make-instance 'DFA
-				   :Σ (Σ DFA-map)
-				   :Σ-in-use (Σ-in-use DFA-map)
-				   :Δ (Δ DFA-map))))
-      (map 'nil #'(lambda (x) (push-state 'next DFA-inst :delta-p nil :final-p x)) (F DFA-map))
-      (setf (slot-value DFA-inst 'q₀) (get-state (q₀ DFA-map) DFA-map))
-      DFA-inst)))
+  (let ((DFA-inst (make-instance 'DFA
+				 :Σ (Σ DFA-map)
+				 :Σ-in-use (Σ-in-use DFA-map)
+				 :Δ (Δ DFA-map))))
+    (map-start-state DFA-map
+		     (map-states DFA-map
+				 DFA-inst
+				 :push-Δ nil))))
+      
+(defmethod map-states :before ((FA-src FA) (FA-dest FA) &key (push-Δ t))
+  (if (not (= (fill-pointer (Q FA-src))
+	      (fill-pointer (Δ FA-src))
+	      (fill-pointer (F FA-src))))
+      (error "Inconsistent States!")
+      (map 'nil
+	   #'(lambda (final-p)
+	       (push-state 'next
+			   FA-dest
+			   :Δ-p push-Δ
+			   :final-p final-p))
+	   (F FA-src))))
 
-(defun list-fa (fa-inst)
+(defmethod map-states ((FA-src FA) (FA-dest FA) &key &allow-other-keys)
+  FA-dest)
+
+(defmethod map-start-state :before ((FA-src FA) (FA-dest FA))
+  (setf (slot-value FA-dest 'q₀)
+	(get-state (get-state (q₀ FA-src)
+			      FA-src)
+		   FA-dest)))
+
+(defmethod map-start-state ((FA-src FA) (FA-dest FA))
+  FA-dest)
+  
+;; Dirty--make list of slot-values to quickly examine FA state. 
+(defmethod list-fa ((fa-inst fa))
   (list (list 'Q '-> (Q fa-inst))
 	(list 'Σ '-> (Σ fa-inst))
 	(list 'Σ-in-use '-> (Σ-in-use fa-inst))
-	(list 'Δ '->(Δ fa-inst))
+	(list 'Δ '-> (Δ fa-inst))
 	(list 'q₀ '-> (q₀ fa-inst))
 	(list 'F '-> (F fa-inst))))
 
-      
+(defmethod DFA->DFA-minimal-map ((DFA-inst DFA))
+  ;; Create new DFA instance to return as a map.
+  ;; Split states into final and non-final state lists.
+  ;; push state lists
+  ;; Run iterator over states until everything checks.
+
+  nil)
+  
