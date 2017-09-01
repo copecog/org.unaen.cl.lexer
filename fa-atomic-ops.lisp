@@ -101,11 +101,12 @@
 
 ;; Normal method for extending to a new (next) state.
 (defmethod push-state ((next (eql 'next)) (FA-inst FA) &key
+							 (delta-p t)
 							 (start-p nil)
 							 (final-p nil)
 		       &allow-other-keys)
   (push-state (make-state-name (dsn FA-inst))
-	      FA-inst :start-p start-p :final-p final-p))
+	      FA-inst :delta-p delta-p :start-p start-p :final-p final-p))
 
 ;; Method to pass back integer for a new state that has already been pushed.
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
@@ -119,9 +120,11 @@
 (defmethod push-state :before ((state-name string) (Q-inst Q) &key &allow-other-keys)
   (vector-push-extend state-name (slot-value Q-inst 'Q)))
 
-(defmethod push-state :before ((state-name string) (Δ-inst Δ) &key &allow-other-keys)
-  (with-slots (Σ Δ) Δ-inst
-    (vector-push-extend (make-Δ Σ) Δ))) ; Extend Δ for state-name.
+(defmethod push-state :before ((state-name string) (Δ-inst Δ) &key (delta-p t) &allow-other-keys)
+  (when delta-p
+    (with-slots (Σ Δ) Δ-inst
+      (push (list 'extending-delta) *debug*)
+      (vector-push-extend (make-Δ Σ) Δ)))) ; Extend Δ for state-name.
 
 (defmethod push-state :before ((state-name string) (q₀-inst q₀) &key (start-p nil) &allow-other-keys)
   (when start-p
@@ -136,9 +139,7 @@
 (defmethod push-state ((state-name string) (FA-instance FA) &key &allow-other-keys)
   (with-slots (Q Δ F) FA-instance
     (values FA-instance                    ; Return mutated FA after all said and done...
-	    (1- (and (fill-pointer Q)
-		     (fill-pointer Δ)      ; (and quick consistency check)
-		     (fill-pointer F)))))) ; ...as well as the state number.
+	    (1- (fill-pointer Q)))))
 
 ;; methods on state lists for transitions between finite automata
 (defmethod push-state :before ((state-list list) (Q-inst Q) &key &allow-other-keys)
@@ -161,9 +162,7 @@
 (defmethod push-state ((state-list list) (FA-inst FA) &key &allow-other-keys)
   (with-slots (Q Δ F) FA-inst
     (values FA-inst                        ; Return mutated FA after all said and done...
-	    (1- (and (fill-pointer Q)
-		     (fill-pointer Δ)      ; (and quick consistency check)
-		     (fill-pointer F)))))) ; ...as well as the state number.
+	    (1- (fill-pointer Q)))))
 
 ;;; Cons up a new parameter list with all of the new states "solidified".
 (defmethod push-next-states ((states-tree list) (FA-instance FA))

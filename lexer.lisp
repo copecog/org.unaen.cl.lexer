@@ -22,8 +22,6 @@
 
 (in-package #:lexer)
 
-;;; Q Σ Δ q₀ F   ε
-
 (defparameter *test-regex-tree*
   '(conc (opt (#\+ #\-))
          (or (conc (or (conc (plus (inter #\0 #\9))
@@ -80,7 +78,7 @@
 
 ;; Make a states map, each DFA state containing a list (set) of NFA states.
 (defmethod NFA->DFA-map ((NFA-inst NFA))
-  (let ((Q-map (make-instance 'FA)))
+  (let ((Q-map (make-instance 'DFA)))
     (push-state (ε-closure (get-state (q₀ NFA-inst)
 				      NFA-inst)
 			   NFA-inst)
@@ -89,3 +87,26 @@
     (NFA->DFA-iter NFA-inst
 		   Q-map
 		   0)))
+
+;; (Q Σ Σ-in-use Δ q₀ F dsn)
+(defmethod DFA-map->DFA ((DFA-map DFA))
+  (when (= (fill-pointer (Q DFA-map))
+	   (fill-pointer (Δ DFA-map))
+	   (fill-pointer (F DFA-map))) ;quick sanity check
+    (let ((DFA-inst (make-instance 'DFA
+				   :Σ (Σ DFA-map)
+				   :Σ-in-use (Σ-in-use DFA-map)
+				   :Δ (Δ DFA-map))))
+      (map 'nil #'(lambda (x) (push-state 'next DFA-inst :delta-p nil :final-p x)) (F DFA-map))
+      (setf (slot-value DFA-inst 'q₀) (get-state (q₀ DFA-map) DFA-map))
+      DFA-inst)))
+
+(defun list-fa (fa-inst)
+  (list (list 'Q '-> (Q fa-inst))
+	(list 'Σ '-> (Σ fa-inst))
+	(list 'Σ-in-use '-> (Σ-in-use fa-inst))
+	(list 'Δ '->(Δ fa-inst))
+	(list 'q₀ '-> (q₀ fa-inst))
+	(list 'F '-> (F fa-inst))))
+
+      
