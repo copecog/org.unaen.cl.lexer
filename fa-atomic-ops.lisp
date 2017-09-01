@@ -8,6 +8,7 @@
 
 (in-package #:lexer)
 
+;;(declaim (optimize (speed 3) (safety 0)))
 
 ;;; Generic Function Prototypes
 (defgeneric make-state-vector (size &key &allow-other-keys)

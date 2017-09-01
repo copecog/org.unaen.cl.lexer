@@ -22,8 +22,9 @@
 
 (in-package #:lexer)
 
-(defparameter *test-regex-tree*
-  '(conc (opt (#\+ #\-))
+;;(declaim (optimize (speed 3) (safety 0)))
+
+(defparameter *test-regex-tree* '(conc (opt (#\+ #\-))
          (or (conc (or (conc (plus (inter #\0 #\9))
                              (#\.)
                              (star (inter #\0 #\9)))
@@ -71,7 +72,7 @@
 	(t Q-map)))
 
 ;; Part of hack to check final states when converting NFA to DFA.
-(defun is-NFA-final-p (states-final)
+(defmethod is-NFA-final-p ((states-final sequence))
   #'(lambda (states-check)
       (reduce #'(lambda (x y) (or x y))
 	      states-check
@@ -134,11 +135,16 @@
 	(list 'q₀ '-> (q₀ fa-inst))
 	(list 'F '-> (F fa-inst))))
 
-(defmethod DFA->DFA-minimal-map ((DFA-inst DFA))
+(defmethod DFA->DFA-min-map ((DFA-inst DFA))
   ;; Create new DFA instance to return as a map.
   ;; Split states into final and non-final state lists.
-  ;; push state lists
+  ;; Push state lists.
   ;; Run iterator over states until everything checks.
 
-  nil)
+  (let ((DFA-min-map (make-instance 'DFA)))
+    
+    
+    
+
+  nil))
   
