@@ -7,8 +7,5 @@
   :serial t
   :depends-on (#:alexandria)
   :components ((:file "package")
-	       (:file "classes")
-	       (:file "fa-atomic-ops")
-	       (:file "push-fragment")
                (:file "lexer")))
 
