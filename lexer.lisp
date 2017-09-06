@@ -633,22 +633,69 @@
 	:if x :collect i :into a
 	  :else :collect i :into b
 	:finally (return
-		   (list a b))))
+		   (values b a))))
 
-;;    Check, for all transition characters, if each state in a list, transitions back to a state
-;; that is in the same list.
-;;    If all the states are in the same respective lists, then these are the new states with the
-;; transitions defined by the respective transitions of the states in each list.
-
-(defmethod hashtable->key-value-list ((hashy hash-table)
-
-(defmethod state= ((state-A integer) (state-B integer) (DFA-inst DFA))
-  (let ((state-A-hashlist (list)))
+(defmethod hash-table->key-value-tree ((hashy hash-table &key (transform-value #'identity))
+  (let ((key-value-list (list)))
     (maphash #'(lambda (key value)
 		 (push (cons key value)
-		       state-A-hashlist))
-	     (aref (Δ DFA-inst)
-		   state-A))
-    (state= state-A-hashlist ))
+		       key-value-list))
+	     hashy)
+    key-value-list))
 
-  
+(defmethod state= ((DFA-inst DFA) (state-A integer) (state-B integer) &rest more-states)
+  (with-slots (Δ) DFA-inst
+    (apply #'state=
+	   DFA-inst
+	   (aref Δ state-A)
+	   (aref Δ state-B)
+	   more-states)))
+
+(defmethod state= ((DFA-inst DFA) (state-A hash-table) (state-B hash-table) &rest more-states)
+  (apply #'state=
+	 DFA-inst
+	 (hash-table->key-value-tree state-A)
+	 (hash-table->key-value-tree state-B)
+	 more-states))   
+	   
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B list) &rest more-states)
+  (let ((truth-so-far (set-equal state-A state-B :test #'equal)))
+    (when truth-so-far
+      (if more-states
+	  (apply #'state=
+		 DFA-inst
+		 state-B
+		 (car more-states)
+		 (cdr more-states))
+	  truth-so-far))))
+
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B integer) &rest more-states)
+  (with-slots (Δ) DFA-inst
+    (apply #'state=
+	   DFA-inst
+	   state-A
+	   (aref Δ state-B)
+	   more-states)))
+
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B hash-table) &rest more-states)
+  (apply #'state=
+	 DFA-inst
+	 state-A
+	 (hash-table->key-value-tree state-B)
+	 more-states))
+
+(defmethod DFA->DFA-min-map ((DFA-inst DFA))
+  (multiple-value-bind (non-final-states final-states)
+      (vector->list-indices-nil/t (F DFA-inst))
+    (multiple-value-bind (DFA-inst non-final-states) 
+	(push-state non-final-states DFA-inst)
+      (multiple-value-bind (DFA-inst final-states)
+	  (push-state final-states DFA-inst)
+	nil))))
+
+(defun DFA-min-map-iter (DFA-inst group-states)
+  nil)
+
+(defmethod group-states-consistent-p ((DFA-inst DFA) (states-group list))
+  (maphash #'(lambda (transit-states) nil) nil) nil)
+
