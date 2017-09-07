@@ -635,10 +635,10 @@
 	:finally (return
 		   (values b a))))
 
-(defmethod hash-table->key-value-tree ((hashy hash-table &key (transform-value #'identity))
+(defmethod hash-table->key-value-tree ((hashy hash-table) &key (map-value #'identity))
   (let ((key-value-list (list)))
     (maphash #'(lambda (key value)
-		 (push (cons key value)
+		 (push (cons key (funcall map-value value))
 		       key-value-list))
 	     hashy)
     key-value-list))
