@@ -635,54 +635,62 @@
 	:finally (return
 		   (values b a))))
 
-(defmethod hash-table->key-value-tree ((hashy hash-table) &key (map-value #'identity))
+(defmethod hash-table->key-value-tree ((hashy hash-table) &key (map-hash-value #'identity))
   (let ((key-value-list (list)))
     (maphash #'(lambda (key value)
-		 (push (cons key (funcall map-value value))
+		 (push (cons key (funcall map-hash-value (first value)))
 		       key-value-list))
 	     hashy)
     key-value-list))
 
-(defmethod state= ((DFA-inst DFA) (state-A integer) (state-B integer) &rest more-states)
-  (with-slots (Δ) DFA-inst
-    (apply #'state=
-	   DFA-inst
-	   (aref Δ state-A)
-	   (aref Δ state-B)
-	   more-states)))
+(defmethod state->group ((DFA-inst DFA) (state integer) (state-groups list))
+  (block abort
+    (map 'nil
+	 #'(lambda (a-state-group)
+	     (if (member state
+			 (get-state a-state-group DFA-inst))
+		 (return-from abort a-state-group)))
+	 state-groups)))
 
-(defmethod state= ((DFA-inst DFA) (state-A hash-table) (state-B hash-table) &rest more-states)
-  (apply #'state=
-	 DFA-inst
-	 (hash-table->key-value-tree state-A)
-	 (hash-table->key-value-tree state-B)
-	 more-states))   
-	   
-(defmethod state= ((DFA-inst DFA) (state-A list) (state-B list) &rest more-states)
-  (let ((truth-so-far (set-equal state-A state-B :test #'equal)))
-    (when truth-so-far
-      (if more-states
-	  (apply #'state=
-		 DFA-inst
-		 state-B
-		 (car more-states)
-		 (cdr more-states))
-	  truth-so-far))))
+(defmethod state= ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
+  (with-slots ((DFA-inst.Δ Δ)) DFA-inst
+    (state= DFA-inst
+	    (aref DFA-inst.Δ state-A)
+	    (aref DFA-inst.Δ state-B)
+	    :state-groups state-groups)))
 
-(defmethod state= ((DFA-inst DFA) (state-A list) (state-B integer) &rest more-states)
-  (with-slots (Δ) DFA-inst
-    (apply #'state=
-	   DFA-inst
-	   state-A
-	   (aref Δ state-B)
-	   more-states)))
+(defmethod state= ((DFA-inst DFA) (state-A hash-table) (state-B hash-table) &key state-groups)
+  (state= DFA-inst
+	  (hash-table->key-value-tree state-A
+				      :map-hash-value #'(lambda (state)
+							  (state->group DFA-inst
+									state
+									state-groups)))
+	  (hash-table->key-value-tree state-B
+				      :map-hash-value #'(lambda (state)
+							  (state->group DFA-inst
+									state
+									state-groups)))))
 
-(defmethod state= ((DFA-inst DFA) (state-A list) (state-B hash-table) &rest more-states)
-  (apply #'state=
-	 DFA-inst
-	 state-A
-	 (hash-table->key-value-tree state-B)
-	 more-states))
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B list) &key &allow-other-keys)
+  ;(values (set-equal state-A state-B :test #'equal) state-A state-B))
+  (set-equal state-A state-B :test #'equal))
+
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B integer) &key state-groups)
+  (with-slots ((DFA-inst.Δ Δ)) DFA-inst
+    (state= DFA-inst
+	    state-A
+	    (aref DFA-inst.Δ state-B)
+	    :state-groups state-groups)))
+
+(defmethod state= ((DFA-inst DFA) (state-A list) (state-B hash-table) &key state-groups)
+  (state= DFA-inst
+	  state-A
+	  (hash-table->key-value-tree state-B
+				      :map-hash-value #'(lambda (state)
+							  (state->group DFA-inst
+									state
+									state-groups)))))
 
 (defmethod DFA->DFA-min-map ((DFA-inst DFA))
   (multiple-value-bind (non-final-states final-states)
@@ -691,11 +699,55 @@
 	(push-state non-final-states DFA-inst)
       (multiple-value-bind (DFA-inst final-states)
 	  (push-state final-states DFA-inst)
-	nil))))
+	(DFA-min-map-iter DFA-inst
+			  (list non-final-states
+				final-states))))))
 
-(defun DFA-min-map-iter (DFA-inst group-states)
+(defun DFA-min-map-iter (DFA-inst state-groups)
+  (if (group-consistent-p DFA-inst
+			  state-groups)
+      (push-group-states state-groups DFA-inst)
+      (DFA-min-map-iter DFA-inst
+			(consistent-groups-iter DFA-inst
+						state-groups
+						(list)))))
+
+(defun group-consistent-p (DFA-inst state-groups)
+  (block abort
+    (dolist (a-state-group state-groups t)
+      (let* ((group (get-state a-state-group DFA-inst))
+	     (first-state (first group))
+	     (rest-of-group (cdr group)))
+	(dolist (state rest-of-group)
+	  (unless (state= DFA-inst first-state state :state-groups state-groups)
+	    (return-from abort nil)))))))
+
+;;   Iterate un
+(defun consistent-groups-iter (DFA-inst state-groups state-groups-out)
+  (if state-groups
+      (let ((first-state (first state-groups))
+	    (rest-of-groups (cdr state-groups)))
+	(multiple-value-bind (new-group remaining-groups)
+	    (separate-if #'(lambda (x)
+			     (state= DFA-inst 
+    
+
+(defun separate-if (predicate sequence &rest rest)
+  (let ((matched (list)))
+    (values (apply #'remove-if
+		   #'(lambda (x)
+		       (let ((it (funcall predicate x)))
+			 (unless it
+			   (push x matched))))
+		   sequence
+		   rest)
+	    (nreverse matched))))
+		   
+(defun push-group-states (state-groups DFA-inst)
   nil)
 
-(defmethod group-states-consistent-p ((DFA-inst DFA) (states-group list))
-  (maphash #'(lambda (transit-states) nil) nil) nil)
+(defmethod DFA-min-map->DFA ((DFA-inst DFA))
+  nil)
+
+
 
