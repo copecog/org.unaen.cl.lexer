@@ -643,6 +643,7 @@
 	     hashy)
     key-value-list))
 
+;; state-groups is list of states that for each state contain a list of states.
 (defmethod state->group ((DFA-inst DFA) (state integer) (state-groups list))
   (block abort
     (map 'nil
@@ -652,6 +653,7 @@
 		 (return-from abort a-state-group)))
 	 state-groups)))
 
+;; Passes state-groups forward that is the same as state->group
 (defmethod state= ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
   (with-slots ((DFA-inst.Δ Δ)) DFA-inst
     (state= DFA-inst
@@ -692,27 +694,32 @@
 									state
 									state-groups)))))
 
+(defmethod state-equal ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
+  (let ((state-A.Δ (slot-value state-A 'Δ))
+	(state-B.Δ (slot-value state-B 'Δ)))
+    (loop 
+
 (defmethod DFA->DFA-min-map ((DFA-inst DFA))
   (multiple-value-bind (non-final-states final-states)
       (vector->list-indices-nil/t (F DFA-inst))
-    (multiple-value-bind (DFA-inst non-final-states) 
+    (multiple-value-bind (DFA-inst state-of-non-final-states) 
 	(push-state non-final-states DFA-inst)
-      (multiple-value-bind (DFA-inst final-states)
+      (multiple-value-bind (DFA-inst state-of-final-states)
 	  (push-state final-states DFA-inst)
 	(DFA-min-map-iter DFA-inst
-			  (list non-final-states
-				final-states))))))
+			  (list state-of-non-final-states
+				state-of-final-states))))))
 
 (defun DFA-min-map-iter (DFA-inst state-groups)
   (if (group-consistent-p DFA-inst
 			  state-groups)
       (push-group-states state-groups DFA-inst)
       (DFA-min-map-iter DFA-inst
-			(consistent-groups-iter DFA-inst
-						state-groups
-						(list)))))
+			(group-consistent DFA-inst
+					  state-groups))))
 
-(defun group-consistent-p (DFA-inst state-groups)
+;; state-groups is list of states that are lists of states.
+(defmethod group-consistent-p ((DFA-inst DFA) (state-groups list))
   (block abort
     (dolist (a-state-group state-groups t)
       (let* ((group (get-state a-state-group DFA-inst))
@@ -722,16 +729,25 @@
 	  (unless (state= DFA-inst first-state state :state-groups state-groups)
 	    (return-from abort nil)))))))
 
-;;   Iterate un
-(defun consistent-groups-iter (DFA-inst state-groups state-groups-out)
-  (if state-groups
-      (let ((first-state (first state-groups))
-	    (rest-of-groups (cdr state-groups)))
-	(multiple-value-bind (new-group remaining-groups)
-	    (separate-if #'(lambda (x)
-			     (state= DFA-inst 
-    
+(defmethod group-consistent ((DFA-inst DFA) (state-groups list))
+  (group-consistent-iter DFA-inst
+			 state-groups
+			 (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
+			 (list)))  
 
+(defun group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
+  (if state-groups-unmarked
+      (multiple-value-bind (a-state-group-marked state-groups-unmarked)
+	  (separate-if #'(lambda (state)
+			   (state= DFA-inst
+				   (first state-groups-unmarked)
+				   state
+				   :state-groups state-groups))
+		       
+				   
+      
+
+	  
 (defun separate-if (predicate sequence &rest rest)
   (let ((matched (list)))
     (values (apply #'remove-if
