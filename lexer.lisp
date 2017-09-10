@@ -632,146 +632,99 @@
 	  :else :collect i :into b
 	:finally (return (values b a))))
 
-;(defmethod hash-table->key-value-tree ((hashy hash-table) &key (map-hash-value #'identity))
-;  (let ((key-value-list (list)))
-;    (maphash #'(lambda (key value)
-;		 (push (cons key (funcall map-hash-value (first value)))
-;		       key-value-list))
-;	     hashy)
-;    key-value-list))
-
-;; state-groups is list of states that for each state contain a list of states.
-;(defmethod state->group ((DFA-inst DFA) (state integer) (state-groups list))
-;  (map 'nil
-;       #'(lambda (a-state-group)
-;	   (if (member state
-;		       (get-state a-state-group DFA-inst))
-;	       (return-from state->group a-state-group)))
-;       state-groups))
-
-;; Passes state-groups forward that is the same as state->group
-;(defmethod state= ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
-;  (with-slots ((DFA-inst.Δ Δ)) DFA-inst
-;    (state= DFA-inst
-;	    (aref DFA-inst.Δ state-A)
-;	    (aref DFA-inst.Δ state-B)
-;	    :state-groups state-groups)))
-
-;(defmethod state= ((DFA-inst DFA) (state-A hash-table) (state-B hash-table) &key state-groups)
-;  (state= DFA-inst
-;	  (hash-table->key-value-tree state-A
-;				      :map-hash-value #'(lambda (state)
-;							  (state->group DFA-inst
-;									state
-;									state-groups)))
-;	  (hash-table->key-value-tree state-B
-;				      :map-hash-value #'(lambda (state)
-;							  (state->group DFA-inst
-;									state
-;									state-groups)))))
-
-;(defmethod state= ((DFA-inst DFA) (state-A list) (state-B list) &key &allow-other-keys)
-;  ;(values (set-equal state-A state-B :test #'equal) state-A state-B))
-;  (set-equal state-A state-B :test #'equal))
-
-;(defmethod state= ((DFA-inst DFA) (state-A list) (state-B integer) &key state-groups)
-;  (with-slots ((DFA-inst.Δ Δ)) DFA-inst
-;    (state= DFA-inst
-;	    state-A
-;	    (aref DFA-inst.Δ state-B)
-;	    :state-groups state-groups)))
-
-;(defmethod state= ((DFA-inst DFA) (state-A list) (state-B hash-table) &key state-groups)
-;  (state= DFA-inst
-;	  state-A
-;	  (hash-table->key-value-tree state-B
-;				      :map-hash-value #'(lambda (state)
-;							  (state->group DFA-inst
-;									state
-;									state-groups)))))
+(defmethod state->group ((DFA-inst DFA) (state list) (state-groups list))
+  (let ((state (first state)))
+    (map 'nil
+	 #'(lambda (a-state-group)
+	     (when (member state
+			   (get-state a-state-group DFA-inst))
+	       (return-from state->group a-state-group)))
+	 state-groups)
+    state))
 
 (defmethod state-equal ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
-  (labels ((state->group (state) 
-	     (map 'nil
-		  #'(lambda (a-state-group)
-		      (when (member state (get-state a-state-group DFA-inst))
-			(return-from state->group a-state-group)))
-		  state-groups)
-	     state))
-    (let ((DFA-inst.Δ.state-A (aref (slot-value DFA-inst 'Δ) state-A))
-	  (DFA-inst.Δ.state-B (aref (slot-value DFA-inst 'Δ) state-B)))
-      (when (= (hash-table-count DFA-inst.Δ.state-A)
+  (let ((DFA-inst.Δ.state-A (aref (slot-value DFA-inst 'Δ)
+				  state-A))
+	(DFA-inst.Δ.state-B (aref (slot-value DFA-inst 'Δ)
+				  state-B)))
+    (if (eq DFA-inst.Δ.state-A
+	    DFA-inst.Δ.state-B)
+	t
+	(if (= (hash-table-count DFA-inst.Δ.state-A)
 	       (hash-table-count DFA-inst.Δ.state-B))
-	(loop :for transit-char :being :the :hash-keys :of DFA-inst.Δ.state-A
-	      :when (not (equal (state->group (gethash transit-char
-						       DFA-inst.Δ.state-A))
-				(state->group (gethash transit-char
-						       DFA-inst.Δ.state-B))))
-		:do (return-from state-equal nil))
-	t)))))
+	    (loop :for transit-char :being :the :hash-keys :of DFA-inst.Δ.state-A
+		  :when (not (equal (state->group DFA-inst
+						  (gethash transit-char DFA-inst.Δ.state-A)
+						  state-groups)
+				    (state->group DFA-inst
+						  (gethash transit-char DFA-inst.Δ.state-B)
+						  state-groups)))
+		    :do (return-from state-equal nil)
+		  :finally (return t))))))
+
+(defmethod group-consistent-p ((DFA-inst DFA) (state-groups list))
+  (dolist (a-state-group state-groups t)
+    (let* ((group (get-state a-state-group DFA-inst))
+	   (first-state (first group))
+	   (rest-of-group (cdr group)))
+      (dolist (state rest-of-group)
+	(unless (state-equal DFA-inst
+			     first-state
+			     state
+			     :state-groups state-groups)
+	  (return-from group-consistent-p nil))))))
+
+(defmethod minimize-states ((DFA-inst DFA) (state-groups list))
+  (labels ((minimize-states-iter (DFA-inst state-groups)
+	     (if (group-consistent-p DFA-inst state-groups)
+		 (push-group-states state-groups DFA-inst)
+		 (minimize-states-iter DFA-inst (group-consistent DFA-inst state-groups)))))
+    (minimize-states-iter DFA-inst state-groups)))
 
 (defmethod DFA->DFA-min-map ((DFA-inst DFA))
-  (multiple-value-bind (non-final-states final-states)
-      (vector->list-indices-nil/t (F DFA-inst))
-    (multiple-value-bind (DFA-inst state-of-non-final-states) 
-	(push-state non-final-states DFA-inst)
-      (multiple-value-bind (DFA-inst state-of-final-states)
-	  (push-state final-states DFA-inst)
-	))))
-;	(DFA-min-map-iter DFA-inst
-;			  (list state-of-non-final-states
-;				state-of-final-states))))))
+  (let ((DFA-inst.F (slot-value DFA-inst 'F)))
+    (multiple-value-bind (non-final-states final-states)
+	(vector->list-indices-nil/t DFA-inst.F)
+      (multiple-value-bind (DFA-inst state-of-non-final-states) 
+	  (push-state non-final-states DFA-inst)
+	(multiple-value-bind (DFA-inst state-of-final-states)
+	    (push-state final-states DFA-inst)
+	  (minimize-states DFA-inst
+			   (list state-of-non-final-states
+				 state-of-final-states)))))))
 
-;(defun DFA-min-map-iter (DFA-inst state-groups)
-;  (if (group-consistent-p DFA-inst
-;			  state-groups)
-;      (push-group-states state-groups DFA-inst)
-;      (DFA-min-map-iter DFA-inst
-;			(group-consistent DFA-inst
-;					  state-groups))))
-
-;; state-groups is list of states that are lists of states.
-;(defmethod group-consistent-p ((DFA-inst DFA) (state-groups list))
-;  (block abort
-;    (dolist (a-state-group state-groups t)
-;      (let* ((group (get-state a-state-group DFA-inst))
-;	     (first-state (first group))
-;	     (rest-of-group (cdr group)))
-;	(dolist (state rest-of-group)
-;	  (unless (state= DFA-inst first-state state :state-groups state-groups)
-;	    (return-from abort nil)))))))
-
-;(defmethod group-consistent ((DFA-inst DFA) (state-groups list))
-;  (group-consistent-iter DFA-inst
-;			 state-groups
-;			 (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
-;			 (list)))  
-
-;(defun group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
-;  (if state-groups-unmarked
-;      (multiple-value-bind (a-state-group-marked state-groups-unmarked)
-;	  (separate-if #'(lambda (state)
-;			   (state= DFA-inst
-;				   (first state-groups-unmarked)
-;				   state
-;				   :state-groups state-groups))))))
-
-;(defun separate-if (predicate sequence &rest rest)
-;  (let ((matched (list)))
-;    (values (apply #'remove-if
-;		   #'(lambda (x)
-;		       (let ((it (funcall predicate x)))
-;			 (unless it
-;			   (push x matched))))
-;		   sequence
-;		   rest)
-;	    (nreverse matched))))
+;;    state-groups is list of integers representing states for which under each state is a list of
+;; integers representing former states.
+(defmethod group-consistent ((DFA-inst DFA) (state-groups list))
+  (labels ((group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
+	     (if state-groups-unmarked
+		 (multiple-value-bind (a-state-group-marked state-groups-unmarked)
+		     (separate-if #'(lambda (state)
+				      (state= DFA-inst
+					      (first state-groups-unmarked)
+					      state
+					      :state-groups state-groups)))))))
+    (group-consistent-iter DFA-inst
+			   state-groups
+			   (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
+			   (list))))  
+    
+(defun separate-if (predicate sequence &rest rest)
+  (let ((matched (list)))
+    (values (apply #'remove-if
+		   #'(lambda (x)
+		       (let ((it (funcall predicate x)))
+			 (unless it
+			   (push x matched))))
+		   sequence
+		   rest)
+	    (nreverse matched))))
 		   
-;(defun push-group-states (state-groups DFA-inst)
-;  nil)
+(defun push-group-states (state-groups DFA-inst)
+  nil)
 
-;(defmethod DFA-min-map->DFA ((DFA-inst DFA))
-;  nil)
+(defmethod DFA-min-map->DFA ((DFA-inst DFA))
+  nil)
 
 
 
