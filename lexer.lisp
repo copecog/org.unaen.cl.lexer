@@ -110,26 +110,31 @@
 (defmethod make-Δ ((Σ-type (eql 'cl-utf)))
   (make-hash-table :test 'eql)) ;eql for cl char's
 
-(defmethod make-state-name ((state-names-instance state-names))
-  (with-slots (preface iterate) state-names-instance
-    (format nil "~a~d" preface (1- (incf iterate)))))
+(defmethod make-state-name ((state-names-inst state-names))
+  (with-slots ((state-names-inst.preface preface) (state-names-inst.iterate iterate)) state-names-inst
+    (format nil "~a~d" state-names-inst.preface (1- (incf state-names-inst.iterate)))))
 
 (defmethod push-state-2 (state (FA-inst FA) Δ-p start-p final-p)
-  (with-slots (Q Σ Δ q₀ F) FA-inst
-    (vector-push-extend state Q)
+  (with-slots ((FA-inst.Q Q) (FA-inst.Σ Σ) (FA-inst.Δ Δ) (FA-inst.q₀ q₀) (FA-inst.F F)) FA-inst
+    (vector-push-extend state FA-inst.Q)
     (when Δ-p
-      (vector-push-extend (make-Δ Σ) Δ))
+      (vector-push-extend (make-Δ FA-inst.Σ) FA-inst.Δ))
     (when start-p
-      (setf q₀ state))
+      (setf FA-inst.q₀ state))
     (if final-p
-	(vector-push-extend state F)
-	(vector-push-extend nil F))
+	(vector-push-extend state FA-inst.F)
+	(vector-push-extend nil FA-inst.F))
     (values FA-inst
-	    (1- (fill-pointer Q)))))
+	    (1- (fill-pointer FA-inst.Q)))))
 
 (defmethod push-state ((next (eql 'next)) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
 		       &allow-other-keys)
-  (push-state-2 (make-state-name (dsn FA-inst))	FA-inst	Δ-p start-p final-p))
+  (with-slots ((FA-inst.dsn dsn)) FA-inst
+    (push-state-2 (make-state-name FA-inst.dsn)
+		  FA-inst
+		  Δ-p
+		  start-p
+		  final-p)))
 
 (defmethod push-state ((state-name string) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
 		       &allow-other-keys)
@@ -143,8 +148,9 @@
   (values FA-inst nil))
 
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
-  (values FA-inst (when (<= state (fill-pointer (slot-value FA-inst 'Q)))
-		    state)))
+  (with-slots ((FA-inst.Q)) FA-inst
+    (values FA-inst (when (<= state (fill-pointer FA-inst.Q))
+		      state))))
 
 ;;; Cons up a new parameter list with all of the new states "solidified".
 (defmethod push-next-states ((states-tree list) (FA-inst FA))
@@ -168,22 +174,26 @@
 			   (transit-char character)
 			   (FA-inst FA)
 			   (Σ (eql 'cl-utf)))
-  (with-slots (Δ Σ-in-use) FA-inst
+  (with-slots ((FA-inst.Δ Δ) (FA-inst.Σ-in-use Σ-in-use)) FA-inst
     (pushnew state-B
-	     (gethash transit-char (aref Δ state-A) nil))
+	     (gethash transit-char
+		      (aref FA-inst.Δ state-A)
+		      nil))
     (pushnew transit-char
-	     Σ-in-use)
+	     FA-inst.Σ-in-use)
     FA-inst))
 
 (defmethod push-transit-2 ((state-A integer)
 			   (state-B integer)
 			   (ε (eql 'ε))
-			   (FA-inst FA)
+			   (NFA-inst NFA)
 			   (Σ (eql 'cl-utf)))
-  (with-slots (Δ Σ-in-use) FA-inst
+  (with-slots ((NFA-inst.Δ Δ)) NFA-inst
     (pushnew state-B
-	     (gethash ε (aref Δ state-A) nil))
-    FA-inst))
+	     (gethash ε
+		      (aref NFA-inst.Δ state-A)
+		      nil))
+    NFA-inst))
 
 (defmethod push-transit-2 ((state-A integer)
 			   (state-b (eql nil))
@@ -196,11 +206,10 @@
   `(push-transit-2 ,state-A ,state-B ,transit-char ,FA-inst (Σ ,FA-inst)))
 
 (defmethod get-transit-2 ((state integer) transit-char (FA-inst FA))
-  (gethash transit-char (aref (slot-value FA-inst 'Δ) state)))
+  (with-slots ((FA-inst.Δ Δ)) FA-inst
+    (gethash transit-char (aref FA-inst.Δ state))))
 
-(defmethod get-transit ((state integer)
-			(transit-char character)
-			(FA-inst FA))
+(defmethod get-transit ((state integer) (transit-char character) (FA-inst FA))
   (get-transit-2 state transit-char FA-inst))
 
 ;;(defmethod get-transit ((states-in list)
@@ -211,73 +220,82 @@
 ;;    (setf states-out (nunion (get-transit state transit-char FA-inst)
 ;;			       states-out)))))
 
-(defun ε-closure-2 (states-in states-out Δ-inst transit-char)
+(defun ε-closure-2 (states-in states-out NFA-inst transit-char)
   (let ((state (pop states-in)))
     (if state
 	(if (member state states-out)
-	    (ε-closure-2 states-in states-out Δ-inst transit-char)
-	    (ε-closure-2 (append states-in (get-transit-2 state transit-char Δ-inst))
+	    (ε-closure-2 states-in
+			 states-out
+			 NFA-inst
+			 transit-char)
+	    (ε-closure-2 (append states-in (get-transit-2 state transit-char NFA-inst))
 			 (push state states-out)
-			 Δ-inst
+			 NFA-inst
 			 transit-char))
 	states-out)))
 
 ;; ==> (state-integer-a state-integer-b ... state-integer-n)
-(defmethod ε-closure ((state integer)
-		      (NFA-inst NFA))
-  (ε-closure-2 (list state) (list) NFA-inst 'ε))
+(defmethod ε-closure ((state integer) (NFA-inst NFA))
+  (ε-closure-2 (list state)
+	       (list)
+	       NFA-inst
+	       'ε))
 
-(defmethod ε-closure ((states list)
-		      (NFA-inst NFA))
-  (ε-closure-2 states (list) NFA-inst 'ε))
+(defmethod ε-closure ((states list) (NFA-inst NFA))
+  (ε-closure-2 states
+	       (list)
+	       NFA-inst
+	       'ε))
 
 (defun find-name-iter (state-name Q cell-iter)
   (if (< cell-iter (fill-pointer Q))
       (if (find-name-equal state-name
 			   (aref Q cell-iter))
 	  cell-iter
-	  (find-name-iter state-name Q (1+ cell-iter)))))
+	  (find-name-iter state-name
+			  Q
+			  (1+ cell-iter)))))
 
 ;; integer -> name;  name -> integer;  list -> integer 
-(defmethod get-state ((state-name string)
-		      (FA-inst FA))
-  (find-name-iter state-name (slot-value FA-inst 'Q) 0))
+(defmethod get-state ((state-name string) (FA-inst FA))
+  (with-slots ((FA-inst.Q Q)) FA-inst
+    (find-name-iter state-name
+		    FA-inst.Q
+		    0)))
 
-(defmethod get-state ((state-list list)
-		      (FA-inst FA))
-  (find-name-iter state-list (slot-value FA-inst 'Q) 0))
+(defmethod get-state ((state-list list) (FA-inst FA))
+  (with-slots ((FA-inst.Q Q)) FA-inst
+    (find-name-iter state-list
+		    FA-inst.Q
+		    0)))
 
-(defmethod get-state ((state integer)
-		      (FA-inst FA))
-  (aref (slot-value FA-inst 'Q) state))
+(defmethod get-state ((state integer) (FA-inst FA))
+  (with-slots ((FA-inst.Q Q)) FA-inst
+    (aref FA-inst.Q state)))
 
-(defmethod get-state ((state (eql nil))
-		      (FA-inst FA))
+(defmethod get-state ((state (eql nil)) (FA-inst FA))
   nil)
 
-(defmethod find-name-equal ((thing1 integer)
-			    (thing2 integer))
+(defmethod find-name-equal ((thing1 integer) (thing2 integer))
   (equal thing1 thing2))
 
-(defmethod find-name-equal ((thing1 string)
-			    (thing2 string))
+(defmethod find-name-equal ((thing1 string) (thing2 string))
   (equal thing1 thing2))
 
-(defmethod find-name-equal ((thing1 list)
-			    (thing2 list))
+(defmethod find-name-equal ((thing1 list) (thing2 list))
   (set-equal thing1 thing2))
     
 ;; For some debugging.
-(defmethod get-Δ ((state integer)
-		  (FA-inst FA))
-  (aref (Δ FA-inst) state))
+(defmethod get-Δ ((state integer) (FA-inst FA))
+  (with-slots ((FA-inst.Δ Δ)) FA-inst
+    (aref FA-inst.Δ state)))
 
-(defmethod get-all-transit (transit-char
-			    (FA-inst FA))
-  (do ((iter 0 (1+ iter))
-       (state-list (list) (push (append (list iter '->) (get-transit-2 iter transit-char FA-inst))
-				state-list)))
-      ((>= iter (fill-pointer (Δ FA-inst))) state-list)))
+(defmethod get-all-transit (transit-char (FA-inst FA))
+  (with-slots ((FA-inst.Δ Δ)) FA-inst
+    (do ((iter 0 (1+ iter))
+	 (state-list (list) (push (append (list iter '->) (get-transit-2 iter transit-char FA-inst))
+				  state-list)))
+	((>= iter (fill-pointer FA-inst.Δ)) state-list))))
 
 (defun truth (ignored-var)
   (declare (ignore ignored-var))
@@ -287,60 +305,50 @@
   (declare (ignore ignored-var))
   nil)
 
-(defmethod push-state-new ((state-list list)
-			   (FA-inst FA)
-			   &key
-			     (final-p #'false)
-			   &allow-other-keys)
+(defmethod push-state-new ((state-list list) (FA-inst FA) &key (final-p #'false) &allow-other-keys)
   (or (get-state state-list FA-inst)
       (multiple-value-bind (FA-inst state-int)
-	  (push-state state-list FA-inst :final-p (funcall final-p state-list))
+	  (push-state state-list
+		      FA-inst
+		      :final-p (funcall final-p state-list))
 	(declare (ignore FA-inst))
 	state-int)))
 
-(defmethod push-state-new ((state-list (eql nil))
-			   (FA-inst FA)
-			   &key &allow-other-keys)
+(defmethod push-state-new ((state-list (eql nil)) (FA-inst FA) &key &allow-other-keys)
   nil)
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-literal))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-literal)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-literal-in (caar argument-list))
 	(fragment-literal-out (cadar argument-list))
 	(transit-character-list (cadr argument-list)))
-    (multiple-value-bind (NFA-instance fragment-literal-in)
+    (multiple-value-bind (NFA-inst fragment-literal-in)
 	(push-state fragment-literal-in
-		    NFA-instance)
-      (multiple-value-bind (NFA-instance fragment-literal-out)
+		    NFA-inst)
+      (multiple-value-bind (NFA-inst fragment-literal-out)
 	  (push-state fragment-literal-out
-	              NFA-instance)
+	              NFA-inst)
 	(values
-	 (dolist (transit-character transit-character-list NFA-instance)
-	   (setf NFA-instance (push-transit fragment-literal-in
-					    fragment-literal-out
-					    transit-character
-					    NFA-instance)))
+	 (dolist (transit-character transit-character-list NFA-inst)
+	   (setf NFA-inst (push-transit fragment-literal-in
+					fragment-literal-out
+					transit-character
+					NFA-inst)))
 	 fragment-literal-in
 	 fragment-literal-out)))))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-ε))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-ε)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-ε-in-1st nil)
 	(fragment-ε-out-n nil))
     (dolist (state-pair argument-list)
-      (multiple-value-bind (NFA-instance-m fragment-ε-in-m fragment-ε-out-m)
-	  (push-fragment-2 'regex-literal (list state-pair (list 'ε)) NFA-instance)
+      (multiple-value-bind (NFA-inst-m fragment-ε-in-m fragment-ε-out-m)
+	  (push-fragment-2 'regex-literal (list state-pair (list 'ε)) NFA-inst)
 	(unless fragment-ε-in-1st
 	  (setf fragment-ε-in-1st fragment-ε-in-m))
 	(setf fragment-ε-out-n fragment-ε-out-m)
-	(setf NFA-instance NFA-instance-m)))
-    (values NFA-instance fragment-ε-in-1st fragment-ε-out-n)))
+	(setf NFA-inst NFA-inst-m)))
+    (values NFA-inst fragment-ε-in-1st fragment-ε-out-n)))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-concat))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-concat)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-concat-in (caar argument-list))
 	(fragment-concat-out (cadar argument-list))
 	(fragment-1st-in (caadr argument-list))
@@ -358,11 +366,9 @@
 			 (nconc (list (list fragment-concat-in fragment-1st-in))
 				chain-pairs
 				(list (list fragment-nth-out fragment-concat-out)))
-			 NFA-instance)))))
+			 NFA-inst)))))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-or))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-or)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-or-in (caar argument-list))
 	(fragment-or-out (cadar argument-list))
 	(frags-to-or (cdr argument-list))
@@ -371,11 +377,9 @@
 		     (dolist (frag frags-to-or frag-or-pairs)
 		       (push (list (second frag) fragment-or-out) frag-or-pairs)
 		       (push (list fragment-or-in (first frag)) frag-or-pairs))
-		     NFA-instance)))
+		     NFA-inst)))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-star))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-star)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-star-in (caar argument-list))
 	(fragment-star-out (cadar argument-list))
 	(fragment-in (caadr argument-list))
@@ -385,16 +389,12 @@
 			   (list fragment-star-out fragment-star-in)
 			   (list fragment-star-in fragment-in)
 			   (list fragment-out fragment-star-out))
-		     NFA-instance)))
+		     NFA-inst)))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-plus))
-			    (argument-list list)
-			    (NFA-instance NFA))
-  (push-fragment-2 'regex-or argument-list NFA-instance)) 
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-plus)) (argument-list list) (NFA-inst NFA))
+  (push-fragment-2 'regex-or argument-list NFA-inst)) 
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-interval))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-interval)) (argument-list list) (NFA-inst NFA))
   (let ((start-end (car argument-list))
 	(intervals-list (cdr argument-list))
 	(char-list (list)))
@@ -405,11 +405,9 @@
 				   (nconc char-list
 					  (char-interval->list (first interval)
 							       (second interval))))))		     
-		     NFA-instance)))
+		     NFA-inst)))
 
-(defmethod push-fragment-2 ((fragment-type (eql 'regex-optional))
-			    (argument-list list)
-			    (NFA-instance NFA))
+(defmethod push-fragment-2 ((fragment-type (eql 'regex-optional)) (argument-list list) (NFA-inst NFA))
   (let ((fragment-optional-in (caar argument-list))
 	(fragment-optional-out (cadar argument-list))
 	(fragment-in (caadr argument-list))
@@ -418,20 +416,14 @@
 		     (list (list fragment-optional-in fragment-optional-out)
 			   (list fragment-optional-in fragment-in)
 			   (list fragment-out fragment-optional-out))
-		     NFA-instance)))
+		     NFA-inst)))
 
-(defmethod push-fragment ((regex-list list)
-			  (NFA-instance NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((regex-list list) (NFA-inst NFA) &rest pass-forward-args)
   (let ((regex-operation (car regex-list))
 	(regex-arguments (cdr regex-list)))
-    (apply #'push-fragment regex-operation NFA-instance regex-arguments)))
+    (apply #'push-fragment regex-operation NFA-inst regex-arguments)))
 
-(defmethod push-fragment ((liter (eql 'liter))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((liter (eql 'liter)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((liter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-literal
 		     (push-next-states (nconc liter-args
@@ -439,17 +431,11 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod push-fragment ((first-char character)
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((first-char character) (NFA-inst NFA) &rest pass-forward-args)
   (push-fragment (cons 'liter (cons first-char pass-forward-args))
 		 NFA-inst))
 
-(defmethod push-fragment ((conc (eql 'conc))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((conc (eql 'conc)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((concat-args (list (list 'next 'next))))
     (push-fragment-2 'regex-concat
 		     (push-next-states (dolist (arg pass-forward-args (nreverse concat-args))
@@ -460,10 +446,7 @@
 				       NFA-inst)
 		     NFA-inst)))
       
-(defmethod push-fragment ((or (eql 'or))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((or (eql 'or)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((or-args (list (list 'next 'next))))
     (push-fragment-2 'regex-or
 		     (push-next-states (dolist (arg pass-forward-args (nreverse or-args))
@@ -474,10 +457,7 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod push-fragment ((star (eql 'star))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((star (eql 'star)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((star-args (list (list 'next 'next))))
     (push-fragment-2 'regex-star
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
@@ -488,10 +468,7 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod push-fragment ((plus (eql 'plus))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((plus (eql 'plus)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((plus-args (list (list 'next 'next))))
     (push-fragment-2 'regex-plus
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
@@ -502,20 +479,14 @@
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod push-fragment ((inter (eql 'inter))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((inter (eql 'inter)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((inter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-interval
 		     (push-next-states (nconc inter-args (list->pairs pass-forward-args))
 				       NFA-inst)
 		     NFA-inst)))
 
-(defmethod push-fragment ((opt (eql 'opt))
-			  (NFA-inst NFA)
-			  &rest
-			    pass-forward-args)
+(defmethod push-fragment ((opt (eql 'opt)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((opt-args (list (list 'next 'next))))
     (push-fragment-2 'regex-optional
 		     (push-next-states (multiple-value-bind (NFA-inst-pushed frag-begin frag-end)
@@ -541,7 +512,6 @@
 			   new-list)))
 	  (pairs-iter source-list (list))))
 
-;; I need to make push-fragment accept :start-p and :end-p
 (defmethod regex-tree->nfa ((regex-expr-tree list))
   (multiple-value-bind (nfa-inst start-state end-state)
       (push-fragment regex-expr-tree (make-instance 'nfa))
@@ -616,7 +586,6 @@
 		   FA-dest))
   FA-dest)
   
-;; Dirty--make list of slot-values to quickly examine FA state. 
 (defmethod list-fa ((fa-inst fa))
   (list (list 'Q '-> (Q fa-inst))
 	(list 'Σ '-> (Σ fa-inst))
@@ -677,8 +646,10 @@
 (defmethod minimize-states ((DFA-inst DFA) (state-groups list))
   (labels ((minimize-states-iter (DFA-inst state-groups)
 	     (if (group-consistent-p DFA-inst state-groups)
-		 (push-group-states state-groups DFA-inst)
-		 (minimize-states-iter DFA-inst (group-consistent DFA-inst state-groups)))))
+		 `(push-transits-for-groups ,state-groups ,DFA-inst)
+		 (multiple-value-bind (DFA-inst state-groups)
+		     (group-consistent DFA-inst state-groups)
+		   (minimize-states-iter DFA-inst state-groups)))))
     (minimize-states-iter DFA-inst state-groups)))
 
 (defmethod DFA->DFA-min-map ((DFA-inst DFA))
@@ -689,27 +660,40 @@
 	  (push-state non-final-states DFA-inst)
 	(multiple-value-bind (DFA-inst state-of-final-states)
 	    (push-state final-states DFA-inst)
-	  (minimize-states DFA-inst
-			   (list state-of-non-final-states
-				 state-of-final-states)))))))
+	  )))))
+;	  (minimize-states DFA-inst
+;			   (list state-of-non-final-states
+;				 state-of-final-states)))))))
 
-;;    state-groups is list of integers representing states for which under each state is a list of
-;; integers representing former states.
 (defmethod group-consistent ((DFA-inst DFA) (state-groups list))
-  (labels ((group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
-	     (if state-groups-unmarked
-		 (multiple-value-bind (a-state-group-marked state-groups-unmarked)
-		     (separate-if #'(lambda (state)
-				      (state= DFA-inst
-					      (first state-groups-unmarked)
-					      state
-					      :state-groups state-groups)))))))
     (group-consistent-iter DFA-inst
 			   state-groups
 			   (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
-			   (list))))  
-    
-(defun separate-if (predicate sequence &rest rest)
+			   (list)))
+
+(defun group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
+  (if state-groups-unmarked
+      (let ((a-state-group-unmarked (car state-groups-unmarked)))
+	(multiple-value-bind (a-state-group-marked a-state-group-unmarked)
+	    (separate-if #'(lambda (state)
+			     (state-equal DFA-inst
+					  (first a-state-group-unmarked)
+					  state
+					  :state-groups state-groups))
+			 a-state-group-unmarked)
+	  (group-consistent-iter DFA-inst
+				 state-groups
+				 (if (cdr a-state-group-unmarked)
+				     (cons a-state-group-unmarked
+					   (cdr state-groups-unmarked))
+				     (cdr state-groups-unmarked))
+				 (push a-state-group-marked
+				       state-groups-marked))))
+      (values DFA-inst
+	      (push-group-states state-groups-marked
+				 DFA-inst))))
+
+(defmethod separate-if ((predicate function) (sequence sequence) &rest rest)
   (let ((matched (list)))
     (values (apply #'remove-if
 		   #'(lambda (x)
@@ -720,11 +704,28 @@
 		   rest)
 	    (nreverse matched))))
 		   
-(defun push-group-states (state-groups DFA-inst)
-  nil)
+(defmethod push-group-states ((state-groups list) (DFA-inst DFA))
+  (let ((pushed-state-groups (list)))
+    (dolist (a-state-group state-groups pushed-state-groups)
+      (multiple-value-bind (DFA-inst pushed-state)
+	  (push-state a-state-group DFA-inst)
+	(declare (ignore DFA-inst))
+	(push pushed-state pushed-state-groups)))))
 
 (defmethod DFA-min-map->DFA ((DFA-inst DFA))
   nil)
 
+(defmethod push-group-transits ((DFA-inst DFA) (state-groups list) &key (map-start t) (map-finals t))
+  nil)
+
+(defmethod symbol->list-in-macro ((thing symbol))
+  `(,thing))
+
+(defmethod symbol->list-in-macro ((thing list))
+  thing)
+
+;(defmacro with-all-slots (class-instances)
+;  (dolist (
+;  `(with-slots ,(
 
 

@@ -5,7 +5,8 @@
   :author "Christopher H Cope <copecd@gmail.com>"
   :license "BSD"
   :serial t
-  :depends-on (#:alexandria)
+  :depends-on (#:alexandria
+	       #:closer-mop)
   :components ((:file "package")
                (:file "lexer")))
 

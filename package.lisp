@@ -4,5 +4,8 @@
   (:use #:cl)
   (:shadowing-import-from #:alexandria
 			  #:mappend
-			  #:set-equal))
+			  #:set-equal)
+  (:shadowing-import-from #:closer-mop
+			  #:compute-slots
+			  #:slot-definition-name))
 
