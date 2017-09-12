@@ -97,6 +97,20 @@
 
 (defgeneric regex-tree->nfa (regex-expr-tree))
 
+(defmacro with-FA-slots (FA-inst &rest body)
+  `(with-slots ((,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Q"))) Q)
+		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Σ"))) Σ)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".Σ-in-use")))
+		 Σ-in-use)
+		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Δ"))) Δ)
+		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".q0"))) q₀)
+		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".F"))) F)
+		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".dsn"))) dsn))
+       ,FA-inst
+     ,@body))
+
 (defmethod make-state-vector ((size integer) &key
 					       (initial-element nil)
 					       (adjustable t)
@@ -109,13 +123,13 @@
 
 (defmethod make-Δ ((Σ-type (eql 'cl-utf)))
   (make-hash-table :test 'eql)) ;eql for cl char's
-
+	   
 (defmethod make-state-name ((state-names-inst state-names))
   (with-slots ((state-names-inst.preface preface) (state-names-inst.iterate iterate)) state-names-inst
     (format nil "~a~d" state-names-inst.preface (1- (incf state-names-inst.iterate)))))
 
 (defmethod push-state-2 (state (FA-inst FA) Δ-p start-p final-p)
-  (with-slots ((FA-inst.Q Q) (FA-inst.Σ Σ) (FA-inst.Δ Δ) (FA-inst.q₀ q₀) (FA-inst.F F)) FA-inst
+  (with-FA-slots FA-inst
     (vector-push-extend state FA-inst.Q)
     (when Δ-p
       (vector-push-extend (make-Δ FA-inst.Σ) FA-inst.Δ))
@@ -129,7 +143,7 @@
 
 (defmethod push-state ((next (eql 'next)) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
 		       &allow-other-keys)
-  (with-slots ((FA-inst.dsn dsn)) FA-inst
+  (with-FA-slots FA-inst
     (push-state-2 (make-state-name FA-inst.dsn)
 		  FA-inst
 		  Δ-p
@@ -148,7 +162,7 @@
   (values FA-inst nil))
 
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
-  (with-slots ((FA-inst.Q)) FA-inst
+  (with-FA-slots FA-inst
     (values FA-inst (when (<= state (fill-pointer FA-inst.Q))
 		      state))))
 
@@ -174,7 +188,7 @@
 			   (transit-char character)
 			   (FA-inst FA)
 			   (Σ (eql 'cl-utf)))
-  (with-slots ((FA-inst.Δ Δ) (FA-inst.Σ-in-use Σ-in-use)) FA-inst
+  (with-FA-slots FA-inst
     (pushnew state-B
 	     (gethash transit-char
 		      (aref FA-inst.Δ state-A)
@@ -188,7 +202,7 @@
 			   (ε (eql 'ε))
 			   (NFA-inst NFA)
 			   (Σ (eql 'cl-utf)))
-  (with-slots ((NFA-inst.Δ Δ)) NFA-inst
+  (with-FA-slots NFA-inst
     (pushnew state-B
 	     (gethash ε
 		      (aref NFA-inst.Δ state-A)
@@ -206,7 +220,7 @@
   `(push-transit-2 ,state-A ,state-B ,transit-char ,FA-inst (Σ ,FA-inst)))
 
 (defmethod get-transit-2 ((state integer) transit-char (FA-inst FA))
-  (with-slots ((FA-inst.Δ Δ)) FA-inst
+  (with-FA-slots FA-inst
     (gethash transit-char (aref FA-inst.Δ state))))
 
 (defmethod get-transit ((state integer) (transit-char character) (FA-inst FA))
@@ -258,19 +272,19 @@
 
 ;; integer -> name;  name -> integer;  list -> integer 
 (defmethod get-state ((state-name string) (FA-inst FA))
-  (with-slots ((FA-inst.Q Q)) FA-inst
+  (with-FA-slots FA-inst
     (find-name-iter state-name
 		    FA-inst.Q
 		    0)))
 
 (defmethod get-state ((state-list list) (FA-inst FA))
-  (with-slots ((FA-inst.Q Q)) FA-inst
+  (with-FA-slots FA-inst
     (find-name-iter state-list
 		    FA-inst.Q
 		    0)))
 
 (defmethod get-state ((state integer) (FA-inst FA))
-  (with-slots ((FA-inst.Q Q)) FA-inst
+  (with-FA-slots FA-inst
     (aref FA-inst.Q state)))
 
 (defmethod get-state ((state (eql nil)) (FA-inst FA))
@@ -287,11 +301,11 @@
     
 ;; For some debugging.
 (defmethod get-Δ ((state integer) (FA-inst FA))
-  (with-slots ((FA-inst.Δ Δ)) FA-inst
+  (with-FA-slots FA-inst
     (aref FA-inst.Δ state)))
 
 (defmethod get-all-transit (transit-char (FA-inst FA))
-  (with-slots ((FA-inst.Δ Δ)) FA-inst
+  (with-FA-slots FA-inst
     (do ((iter 0 (1+ iter))
 	 (state-list (list) (push (append (list iter '->) (get-transit-2 iter transit-char FA-inst))
 				  state-list)))
@@ -612,10 +626,8 @@
     state))
 
 (defmethod state-equal ((DFA-inst DFA) (state-A integer) (state-B integer) &key state-groups)
-  (let ((DFA-inst.Δ.state-A (aref (slot-value DFA-inst 'Δ)
-				  state-A))
-	(DFA-inst.Δ.state-B (aref (slot-value DFA-inst 'Δ)
-				  state-B)))
+  (let ((DFA-inst.Δ.state-A (aref (slot-value DFA-inst 'Δ) state-A))
+	(DFA-inst.Δ.state-B (aref (slot-value DFA-inst 'Δ) state-B)))
     (if (eq DFA-inst.Δ.state-A
 	    DFA-inst.Δ.state-B)
 	t
@@ -660,10 +672,9 @@
 	  (push-state non-final-states DFA-inst)
 	(multiple-value-bind (DFA-inst state-of-final-states)
 	    (push-state final-states DFA-inst)
-	  )))))
-;	  (minimize-states DFA-inst
-;			   (list state-of-non-final-states
-;				 state-of-final-states)))))))
+	  (minimize-states DFA-inst
+			   (list state-of-non-final-states
+				 state-of-final-states)))))))
 
 (defmethod group-consistent ((DFA-inst DFA) (state-groups list))
     (group-consistent-iter DFA-inst
@@ -683,7 +694,7 @@
 			 a-state-group-unmarked)
 	  (group-consistent-iter DFA-inst
 				 state-groups
-				 (if (cdr a-state-group-unmarked)
+				 (if a-state-group-unmarked
 				     (cons a-state-group-unmarked
 					   (cdr state-groups-unmarked))
 				     (cdr state-groups-unmarked))
@@ -703,20 +714,29 @@
 		   sequence
 		   rest)
 	    (nreverse matched))))
-		   
+
+;(defmethod push-group-states ((state-groups list) (DFA-inst DFA))
+;  (let ((pushed-state-groups (list)))
+;    (dolist (a-state-group state-groups pushed-state-groups)
+;      (multiple-value-bind (DFA-inst pushed-state)
+;	  (push-state a-state-group DFA-inst)
+;	(declare (ignore DFA-inst))
+;	(push pushed-state pushed-state-groups)))))
+
 (defmethod push-group-states ((state-groups list) (DFA-inst DFA))
-  (let ((pushed-state-groups (list)))
-    (dolist (a-state-group state-groups pushed-state-groups)
-      (multiple-value-bind (DFA-inst pushed-state)
-	  (push-state a-state-group DFA-inst)
-	(declare (ignore DFA-inst))
-	(push pushed-state pushed-state-groups)))))
+  (loop :for a-state-group :in state-groups
+	:collect (multiple-value-bind (DFA-inst pushed-state)
+		     (push-state a-state-group DFA-inst)
+		   (declare (ignore DFA-inst))
+		   pushed-state)))
 
 (defmethod DFA-min-map->DFA ((DFA-inst DFA))
   nil)
 
-(defmethod push-group-transits ((DFA-inst DFA) (state-groups list) &key (map-start t) (map-finals t))
-  nil)
+;(defmethod push-group-transits ((DFA-inst DFA) (state-groups list) &key (map-start t) (map-finals t))
+;  (loop :for a-state-group :in state-groups
+;	:if (cdr a-state-group) :do
+;	  ))
 
 (defmethod symbol->list-in-macro ((thing symbol))
   `(,thing))
@@ -724,8 +744,21 @@
 (defmethod symbol->list-in-macro ((thing list))
   thing)
 
-;(defmacro with-all-slots (class-instances)
-;  (dolist (
-;  `(with-slots ,(
+;(loop :with dfa-inst.delta.state = (aref (slot-value *dfa-1* 'Δ) 10)
+;	     :for transit-char :being :the :hash-keys :of dfa-inst.delta.state 
+;	       :using (hash-value dest-states)
+;	     :collect (cons transit-char dest-states))
+
+;(defun foo (things)
+;  (loop :for thing :in things
+;	:if (cdr thing) :collect thing :into some-things
+;	  :else :collect thing :into some-things-too :end
+;	:finally (return (list some-things some-things-too))))
+
+;; state-names  ->  preface  iterate
+;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  F  dsn
+
+
+
 
 
