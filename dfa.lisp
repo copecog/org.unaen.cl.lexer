@@ -2,6 +2,9 @@
 
 ;;(declaim (optimize (speed 3) (safety 0)))
 
+
+;;; **** NFA to DFA *************************************************************
+
 (defun ε-closure-2 (states-in states-out NFA-inst transit-char)
   (let ((state (pop states-in)))
     (if state
@@ -30,50 +33,41 @@
 	       'ε))
 
 ;; Part of hack to check final states when converting NFA to DFA.
-(defmethod is-NFA-final-p ((states-final sequence))
-  #'(lambda (states-check)
-      (reduce #'(lambda (x y) (or x y))
-	      states-check
-	      :key #'(lambda (x) (aref states-final x)))))
+(defmethod is-final-p ((FA-inst FA))
+  (with-FA-slots FA-inst
+    #'(lambda (states-check)
+	(reduce #'(lambda (x y) (or x y))
+		states-check
+		:key #'(lambda (x) (aref FA-inst.F x))))))
 
-(defun NFA->DFA-iter (NFA-inst Q-map state-iter)
-  (cond ((< state-iter (fill-pointer (Q Q-map)))
+(defun NFA->DFA-iter (NFA-inst DFA-map state-iter)
+  (cond ((< state-iter (fill-pointer (Q DFA-map)))
 	 (dolist (transit-char (Σ-in-use NFA-inst))
 	   (push-transit state-iter
 			 (push-state-new (ε-closure (mappend #'(lambda (x)
 								 (get-transit x
 									      transit-char
 									      NFA-inst))
-							     (aref (Q Q-map)
+							     (aref (Q DFA-map)
 								   state-iter))
 						    NFA-inst)
-					 Q-map
-					 :final-p (is-NFA-final-p (F NFA-inst)))
+					 DFA-map
+					 :final-p (is-final-p NFA-inst))
 			 transit-char
-			 Q-map))
-	 (NFA->DFA-iter NFA-inst Q-map (1+ state-iter)))
-	(t Q-map)))
+			 DFA-map))
+	 (NFA->DFA-iter NFA-inst DFA-map (1+ state-iter)))
+	(t DFA-map)))
 
 (defmethod NFA->DFA-map ((NFA-inst NFA))
-  (let ((Q-map (make-instance 'DFA)))
+  (let ((DFA-map (make-instance 'DFA)))
     (push-state (ε-closure (get-state (q₀ NFA-inst)
 				      NFA-inst)
 			   NFA-inst)
-		Q-map
+		DFA-map
 		:start-p t)
     (NFA->DFA-iter NFA-inst
-		   Q-map
+		   DFA-map
 		   0)))
-
-(defmethod DFA-map->DFA ((DFA-map DFA))
-  (let ((DFA-inst (make-instance 'DFA
-				 :Σ (Σ DFA-map)
-				 :Σ-in-use (Σ-in-use DFA-map)
-				 :Δ (Δ DFA-map))))
-    (map-start-state DFA-map
-		     (map-states DFA-map
-				 DFA-inst
-				 :push-Δ nil))))
 
 (defmethod map-states ((FA-src FA) (FA-dest FA) &key (push-Δ t))
   (if (not (= (fill-pointer (Q FA-src))
@@ -90,11 +84,35 @@
   FA-dest)
 
 (defmethod map-start-state ((FA-src FA) (FA-dest FA))
-  (setf (slot-value FA-dest 'q₀)
-	(get-state (get-state (q₀ FA-src)
-			      FA-src)
-		   FA-dest))
-  FA-dest)
+  (with-FA-slots FA-src
+    (with-FA-slots FA-dest
+      (let ((start-name (get-state (get-state FA-src.q0 FA-src) FA-dest)))
+	(push start-name FA-dest.q0-prev)
+	(setf FA-dest.q0 start-name)
+	FA-dest))))	
+
+(defmethod DFA-map->DFA ((DFA-map DFA))
+  (let ((DFA-inst (make-instance 'DFA
+				 :Σ (Σ DFA-map)
+				 :Σ-in-use (Σ-in-use DFA-map)
+				 :Δ (Δ DFA-map))))
+    (map-start-state DFA-map
+		     (map-states DFA-map
+				 DFA-inst
+				 :push-Δ nil))))
+
+
+;;; **** DFA Minimizer **********************************************************
+;;;
+;;;  "a-group-state" is an individual state (integer) in a group below.
+;;;
+;;;  "group-states" is a list of (integer) states that have been found equivalent.
+;;; It is one or more elements in length depending on equivalency.
+;;;
+;;;  "a-state-group" is a newly pushed state (integer) which itself contains 
+;;; the aforementioned "group-states" list in the DFA.
+;;;
+;;;  "state-groups" is a list of these newly pushed "a-state-group"'s (integers).
 
 (defmethod state->group ((DFA-inst DFA) (state list) (state-groups list))
   (let ((state (first state)))
@@ -126,9 +144,9 @@
 
 (defmethod group-consistent-p ((DFA-inst DFA) (state-groups list))
   (dolist (a-state-group state-groups t)
-    (let* ((group (get-state a-state-group DFA-inst))
-	   (first-state (first group))
-	   (rest-of-group (cdr group)))
+    (let* ((group-states (get-state a-state-group DFA-inst))
+	   (first-state (first group-states))
+	   (rest-of-group (cdr group-states)))
       (dolist (state rest-of-group)
 	(unless (state-equal DFA-inst
 			     first-state
@@ -136,32 +154,27 @@
 			     :state-groups state-groups)
 	  (return-from group-consistent-p nil))))))
 
-(defmethod minimize-states ((DFA-inst DFA) (state-groups list))
-  (labels ((minimize-states-iter (DFA-inst state-groups)
-	     (if (group-consistent-p DFA-inst state-groups)
-		 `(push-transits-for-groups ,state-groups ,DFA-inst)
-		 (multiple-value-bind (DFA-inst state-groups)
-		     (group-consistent DFA-inst state-groups)
-		   (minimize-states-iter DFA-inst state-groups)))))
-    (minimize-states-iter DFA-inst state-groups)))
+;; In this instance state-groups is a list of each state-group list.
+(defmethod push-group-states ((state-groups list) (DFA-inst DFA) &key
+								   (start-p #'false)
+								   (final-p #'false))
+  (with-FA-slots DFA-inst
+    (loop :for a-state-group :in state-groups
+	  :collect (multiple-value-bind (DFA-inst pushed-state)
+		       (push-state a-state-group
+				   DFA-inst
+				   :final-p (funcall final-p a-state-group))
+		     (declare (ignore DFA-inst))
+		     (when (funcall start-p a-state-group)
+		       (push pushed-state DFA-inst.q0-prev))
+		     pushed-state))))
 
-(defmethod DFA->DFA-min-map ((DFA-inst DFA))
-  (let ((DFA-inst.F (slot-value DFA-inst 'F)))
-    (multiple-value-bind (non-final-states final-states)
-	(vector->list-indices-nil/t DFA-inst.F)
-      (multiple-value-bind (DFA-inst state-of-non-final-states) 
-	  (push-state non-final-states DFA-inst)
-	(multiple-value-bind (DFA-inst state-of-final-states)
-	    (push-state final-states DFA-inst)
-	  (minimize-states DFA-inst
-			   (list state-of-non-final-states
-				 state-of-final-states)))))))
-
-(defmethod group-consistent ((DFA-inst DFA) (state-groups list))
-    (group-consistent-iter DFA-inst
-			   state-groups
-			   (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
-			   (list)))
+;; Get string fa-inst.q0; Find integer of state from fa-inst.q; See if integer in a-state-group.
+(defmethod is-start-p ((FA-inst FA))
+  (with-FA-slots FA-inst
+    (let ((start-state-integer (get-state FA-inst.q0 FA-inst)))
+      #'(lambda (a-state-group)
+	  (member start-state-integer a-state-group)))))
 
 (defun group-consistent-iter (DFA-inst state-groups state-groups-unmarked state-groups-marked)
   (if state-groups-unmarked
@@ -183,31 +196,57 @@
 				       state-groups-marked))))
       (values DFA-inst
 	      (push-group-states state-groups-marked
-				 DFA-inst))))
+				 DFA-inst
+				 :start-p (is-start-p DFA-inst)
+				 :final-p (is-final-p DFA-inst)))))
 
-;(defmethod push-group-states ((state-groups list) (DFA-inst DFA))
-;  (let ((pushed-state-groups (list)))
-;    (dolist (a-state-group state-groups pushed-state-groups)
-;      (multiple-value-bind (DFA-inst pushed-state)
-;	  (push-state a-state-group DFA-inst)
-;	(declare (ignore DFA-inst))
-;	(push pushed-state pushed-state-groups)))))
+(defmethod group-consistent ((DFA-inst DFA) (state-groups list))
+    (group-consistent-iter DFA-inst
+			   state-groups
+			   (mapcar #'(lambda (x) (get-state x DFA-inst)) state-groups)
+			   (list)))
 
-(defmethod push-group-states ((state-groups list) (DFA-inst DFA))
-  (loop :for a-state-group :in state-groups
-	:collect (multiple-value-bind (DFA-inst pushed-state)
-		     (push-state a-state-group DFA-inst)
-		   (declare (ignore DFA-inst))
-		   pushed-state)))
+(defmethod minimize-states ((DFA-inst DFA) (state-groups list))
+  (labels ((minimize-states-iter (DFA-inst state-groups)
+	     (if (group-consistent-p DFA-inst state-groups)
+		 (map-group-transits state-groups DFA-inst)
+		 (multiple-value-bind (DFA-inst state-groups)
+		     (group-consistent DFA-inst state-groups)
+		   (minimize-states-iter DFA-inst state-groups)))))
+    (minimize-states-iter DFA-inst state-groups)))
+
+(defmethod DFA->DFA-min-map ((DFA-inst DFA))
+  (let ((DFA-inst.F (slot-value DFA-inst 'F)))
+    (multiple-value-bind (non-final-states final-states)
+	(vector->list-indices-nil/t DFA-inst.F)
+      (multiple-value-bind (DFA-inst state-of-non-final-states) 
+	  (push-state non-final-states DFA-inst)
+	(multiple-value-bind (DFA-inst state-of-final-states)
+	    (push-state final-states DFA-inst)
+	  (minimize-states DFA-inst
+			   (list state-of-non-final-states
+				 state-of-final-states)))))))
 
 (defmethod DFA-min-map->DFA ((DFA-inst DFA))
   nil)
 
-;(defmethod push-group-transits ((DFA-inst DFA) (state-groups list) &key (map-start t) (map-finals t))
-;  (loop :for a-state-group :in state-groups
-;	:if (cdr a-state-group) :do
-;	  ))
+(defmethod NFA->DFA ((NFA-inst NFA))
+  (dfa-map->dfa (nfa->dfa-map NFA-inst)))
+
+(defmethod regex-tree->DFA ((regex-tree list))
+  (nfa->dfa (regex-tree->nfa regex-tree)))
 
 ;; state-names  ->  preface  iterate
 ;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  F  dsn
-
+(defmethod map-group-transits ((state-groups list) (DFA-inst DFA))
+  (with-FA-slots DFA-inst
+    (loop :for a-state-group :in state-groups :do
+      (loop :for a-group-state :in (get-state a-state-group DFA-inst) :do
+	(loop :for transit-char :being :the :hash-keys :of (aref DFA-inst.Δ a-group-state)
+		:using (:hash-value transit-state)
+	      :do (push-transit a-state-group (state->group DFA-inst
+							    transit-state
+							    state-groups)
+				transit-char
+				DFA-inst)))))
+  DFA-inst)

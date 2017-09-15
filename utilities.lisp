@@ -11,6 +11,10 @@
 		 Σ-in-use)
 		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Δ"))) Δ)
 		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".q0"))) q₀)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".q0-prev")))
+		 q₀-prev)
 		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".F"))) F)
 		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".dsn"))) dsn))
        ,FA-inst
@@ -55,15 +59,6 @@
 (defmethod symbol->list-in-macro ((thing list))
   thing)
 
-;(loop :with dfa-inst.delta.state = (aref (slot-value *dfa-1* 'Δ) 10)
-;	     :for transit-char :being :the :hash-keys :of dfa-inst.delta.state 
-;	       :using (hash-value dest-states)
-;	     :collect (cons transit-char dest-states))
 
-;(defun foo (things)
-;  (loop :for thing :in things
-;	:if (cdr thing) :collect thing :into some-things
-;	  :else :collect thing :into some-things-too :end
-;	:finally (return (list some-things some-things-too))))
 
 

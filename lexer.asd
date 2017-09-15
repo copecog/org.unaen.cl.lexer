@@ -14,5 +14,6 @@
 	       (:file "fa")
 	       (:file "nfa")
 	       (:file "dfa")
-               (:file "lexer")))
+               (:file "lexer")
+	       (:file "testing")))
 

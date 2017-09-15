@@ -23,6 +23,9 @@
       :reader Δ)
    (q₀ :initarg :q₀
        :reader q₀)
+   (q0-prev :initarg :q0-prev
+	    :initform (list)
+	    :reader q0-prev)
    (F :initarg :F
       :initform (make-state-vector 1)
       :reader F)

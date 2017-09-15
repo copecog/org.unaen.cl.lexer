@@ -1,7 +1,9 @@
 (in-package #:lexer)
 
 ;; regex tree for a floating point number
-(defparameter *test-regex-tree-1* '(conc (opt (#\+ #\-))
+;; [+-]? ( ( ([0-9]+.[0-9]∗|.[0-9]+) ([eE][+-]?[0-9]+)? ) | [0-9]+[eE][+-]?[0-9]+ )
+(defparameter *test-regex-tree-1*
+  '(conc (opt (#\+ #\-))
          (or (conc (or (conc (plus (inter #\0 #\9))
                              (#\.)
                              (star (inter #\0 #\9)))
@@ -44,4 +46,5 @@
 	(list 'Σ-in-use '-> (Σ-in-use fa-inst))
 	(list 'Δ '-> (Δ fa-inst))
 	(list 'q₀ '-> (q₀ fa-inst))
+	(list 'q0-prev '-> (q0-prev fa-inst))
 	(list 'F '-> (F fa-inst))))
