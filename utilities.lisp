@@ -3,20 +3,38 @@
 ;;; Program-Wide utility functions.
 
 (defmacro with-FA-slots (FA-inst &rest body)
-  `(with-slots ((,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Q"))) Q)
-		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Σ"))) Σ)
+  `(with-slots ((,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".Q")))
+		 Q)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".Σ")))
+		 Σ)
 		(,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".Σ-in-use")))
 		 Σ-in-use)
-		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".Δ"))) Δ)
-		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".q0"))) q₀)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".Δ")))
+		 Δ)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".q0")))
+		 q₀)
 		(,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".q0-prev")))
 		 q₀-prev)
-		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".F"))) F)
-		(,(intern (string-upcase (concatenate 'string (symbol-name FA-inst) ".dsn"))) dsn))
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".F")))
+		 F)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".dsn")))
+		 dsn))
        ,FA-inst
      ,@body))
 
@@ -59,6 +77,62 @@
 (defmethod symbol->list-in-macro ((thing list))
   thing)
 
+;;;; Ignoring existing copy functions
 
+;;; Mutable
 
+;; Cons Cells: cons
+;; Recurse depth proportional to both tree width and depth.
+;;(defmethod copy-all ((obj cons))
+;;  (cons (copy-all (car obj))
+;; 	  (copy-all (cdr obj))))
+;; Recurse depth proportional to tree depth.
+(defmethod copy-all ((obj cons))
+  (loop :for obj->car :in obj :collect (copy-all obj->car)))
 
+;; Vectors: [simple|bit|simple-bit]-?vector [simple|base|simple-base]-?string
+(defmethod copy-all ((obj vector))
+  (let* ((array-dimensions (array-dimensions obj))
+	 (array-element-type (array-element-type obj))
+	 (adjustable-array-p (adjustable-array-p obj))
+	 (array-has-fill-pointer-p (array-has-fill-pointer-p obj))
+	 (fill-pointer (when array-has-fill-pointer-p
+			 (fill-pointer obj))))
+    (loop :with new-vector = (make-array array-dimensions
+					 :element-type array-element-type
+					 :adjustable adjustable-array-p
+					 :fill-pointer fill-pointer)
+	  :for cell-data :across obj
+	  :for cell-int :from 0 :to (if array-has-fill-pointer-p
+					fill-pointer
+					(first array-dimensions))
+	  :do (setf (aref new-vector cell-int)
+		    (copy-all cell-data))
+	  :finally (return new-vector))))
+
+;; Hash Tables: hash-table
+(defmethod copy-all ((obj hash-table))
+  (loop :with new-hash-table = (make-hash-table :test (hash-table-test obj)
+						:size (hash-table-size obj)
+						:rehash-size (hash-table-rehash-size obj)
+						:rehash-threshold (hash-table-rehash-threshold obj))
+	:for hash-key :being :the :hash-keys :of obj :using (:hash-value hash-value)
+	:do
+	   (setf (gethash (copy-all hash-key) new-hash-table)
+		 (copy-all hash-value))
+	:finally (return new-hash-table)))
+
+;;; Immutable
+
+;; Symbols: symbol null keyword boolean
+(defmethod copy-all ((obj symbol))
+  obj)
+
+;; Numbers: number complex real [short|single|double|long]-?float rational ratio integer
+;;   [fix|big]num [signed|unsigned]-byte bit
+(defmethod copy-all ((obj number))
+  obj)
+
+;; Characters: character [extended|base|standard]-char
+(defmethod copy-all ((obj character))
+  obj)

@@ -153,4 +153,18 @@
 			  Q
 			  (1+ cell-iter)))))
 
+;; state-names  ->  preface  iterate
+;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  q0-prev  F  dsn
+(defmethod traverse-copy-FA ((FA-inst FA))
+  (let ((fa-copy (make-instance 'FA
+				 :Q 'Q
+				 :Σ 'Σ
+				 :Σ-in-use 'Σ-in-use
+				 :Δ 'Δ
+				 :q0 'q0
+				 :q0-prev 'q0-prev
+				 :F 'F
+				 :dsn 'dsn)))))
 
+
+				 

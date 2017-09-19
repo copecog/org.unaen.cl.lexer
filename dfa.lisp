@@ -237,7 +237,7 @@
   (nfa->dfa (regex-tree->nfa regex-tree)))
 
 ;; state-names  ->  preface  iterate
-;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  F  dsn
+;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  q0-prev  F  dsln
 (defmethod map-group-transits ((state-groups list) (DFA-inst DFA))
   (with-FA-slots DFA-inst
     (loop :for a-state-group :in state-groups :do

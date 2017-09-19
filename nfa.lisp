@@ -269,6 +269,8 @@
 			   (list fragment-out fragment-optional-out))
 		     NFA-inst)))
 
+;;; push-fragment 'evaluates' a regex tree by mapping each expression push-fragment-2
+
 (defmethod push-fragment ((regex-list list) (NFA-inst NFA) &rest pass-forward-args)
   (let ((regex-operation (car regex-list))
 	(regex-arguments (cdr regex-list)))
