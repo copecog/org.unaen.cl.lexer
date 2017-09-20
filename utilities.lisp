@@ -81,16 +81,11 @@
 
 ;;; Mutable
 
-;; Cons Cells: cons
-;; Recurse depth proportional to both tree width and depth.
-;;(defmethod copy-all ((obj cons))
-;;  (cons (copy-all (car obj))
-;; 	  (copy-all (cdr obj))))
-;; Recurse depth proportional to tree depth.
+;; Cons Cells: LIST (not (null '(a list))), CONS
 (defmethod copy-all ((obj cons))
   (loop :for obj->car :in obj :collect (copy-all obj->car)))
 
-;; Vectors: [simple|bit|simple-bit]-?vector [simple|base|simple-base]-?string
+;; Vectors: [SIMPLE|BIT|SIMPLE-BIT]-?VECTOR, [SIMPLE|BASE|SIMPLE-BASE]-?STRING
 (defmethod copy-all ((obj vector))
   (let* ((array-dimensions (array-dimensions obj))
 	 (array-element-type (array-element-type obj))
@@ -110,7 +105,7 @@
 		    (copy-all cell-data))
 	  :finally (return new-vector))))
 
-;; Hash Tables: hash-table
+;; Hash Tables: HASH-TABLE
 (defmethod copy-all ((obj hash-table))
   (loop :with new-hash-table = (make-hash-table :test (hash-table-test obj)
 						:size (hash-table-size obj)
@@ -124,15 +119,15 @@
 
 ;;; Immutable
 
-;; Symbols: symbol null keyword boolean
+;; Symbols: SYMBOL, NULL (reduce #'eq '() () nil 'nil), KEYWORD, BOOLEAN
 (defmethod copy-all ((obj symbol))
   obj)
 
-;; Numbers: number complex real [short|single|double|long]-?float rational ratio integer
-;;   [fix|big]num [signed|unsigned]-byte bit
+;; Numbers: NUMBER, COMPLEX, REAL, [SHORT|SINGLE|DOUBLE|LONG]-?FLOAT, RATIONAL, RATIO, INTEGER,
+;;   [FIX|BIG]NUM, [SIGNED|UNSIGNED]-BYTE, BIT
 (defmethod copy-all ((obj number))
   obj)
 
-;; Characters: character [extended|base|standard]-char
+;; Characters: CHARACTER, [EXTENDED|BASE|STANDARD]-CHAR
 (defmethod copy-all ((obj character))
   obj)
