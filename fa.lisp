@@ -65,26 +65,6 @@
 			state
 			(error "State not within existing states.")))))
 
-(defun truth (ignored-var)
-  (declare (ignore ignored-var))
-  t)
-
-(defun false (ignored-var)
-  (declare (ignore ignored-var))
-  nil)
-
-(defmethod push-state-new ((state-list list) (FA-inst FA) &key (final-p #'false) &allow-other-keys)
-  (or (get-state state-list FA-inst)
-      (multiple-value-bind (FA-inst state-int)
-	  (push-state state-list
-		      FA-inst
-		      :final-p (funcall final-p state-list))
-	(declare (ignore FA-inst))
-	state-int)))
-
-(defmethod push-state-new ((state-list (eql nil)) (FA-inst FA) &key &allow-other-keys)
-  nil)
-
 (defmethod push-transit-2 ((state-A integer)
 			   (state-B integer)
 			   (transit-char character)
@@ -116,58 +96,21 @@
 (defmethod get-transit ((state integer) (transit-char character) (FA-inst FA))
   (get-transit-2 state transit-char FA-inst))
 
-;; integer -> name;  name -> integer;  list -> integer 
-(defmethod get-state ((state-name string) (FA-inst FA))
-  (with-FA-slots FA-inst
-    (find-name-iter state-name
-		    FA-inst.Q
-		    0)))
-
-(defmethod get-state ((state-list list) (FA-inst FA))
-  (with-FA-slots FA-inst
-    (find-name-iter state-list
-		    FA-inst.Q
-		    0)))
-
-(defmethod get-state ((state integer) (FA-inst FA))
-  (with-FA-slots FA-inst
-    (if (<= state (fill-pointer FA-inst.Q))
-			(aref FA-inst.Q state)
-			(error "State not within existing states."))))
-
-(defmethod get-state ((state (eql nil)) (FA-inst FA))
-  nil)
-
-(defmethod find-name-equal ((thing1 integer) (thing2 integer))
-  (equal thing1 thing2))
-
-(defmethod find-name-equal ((thing1 string) (thing2 string))
-  (equal thing1 thing2))
-
-(defmethod find-name-equal ((thing1 list) (thing2 list))
-  (set-equal thing1 thing2))
-
-(defun find-name-iter (state-name Q cell-iter)
-  (if (< cell-iter (fill-pointer Q))
-      (if (find-name-equal state-name
-			   (aref Q cell-iter))
-	  cell-iter
-	  (find-name-iter state-name
-			  Q
-			  (1+ cell-iter)))))
-
 ;; state-names -> preface iterate
 ;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
 (defmethod traverse-copy ((FA-inst FA))
   (let ((FA-copy (make-instance 'FA
-				 :Q 'Q
-				 :Σ 'Σ
-				 :Σ-in-use 'Σ-in-use
-				 :Δ 'Δ
-				 :q0 'q0
-				 :q0-prev 'q0-prev
-				 :F 'F
-				 :dsn 'dsn)))
+				:regex-tree 'regex-tree
+				:FA-prev 'FA-prev
+				:Q-map 'Q-map
+				:Q 'Q
+				:Σ 'Σ
+				:Σ-in-use 'Σ-in-use
+				:Δ 'Δ
+				:q0 'q0
+				:q0-prev 'q0-prev
+				:F 'F
+				:dsn 'dsn)))
     (with-FA-slots FA-inst
       (with-FA-slots FA-copy
 	FA-copy))))

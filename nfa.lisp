@@ -356,9 +356,9 @@
 (defmethod regex-tree->nfa ((regex-expr-tree list))
   (multiple-value-bind (nfa-inst start-state end-state)
       (push-fragment regex-expr-tree (make-instance 'nfa))
-    (with-FA-slots nfa-inst
-      (let ((start-name (get-state start-state nfa-inst))
-	    (end-name (get-state end-state nfa-inst)))
+    (with-FA-slots NFA-inst
+      (let ((start-name (aref NFA-inst.Q start-state))
+	    (end-name (aref NFA-inst.Q end-state)))
 	(setf nfa-inst.regex-tree regex-expr-tree)
 	(push start-name nfa-inst.q0-prev)
 	(setf nfa-inst.q0 start-name)
