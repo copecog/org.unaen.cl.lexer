@@ -20,40 +20,43 @@
 	   
 (defmethod make-state-name ((state-names-inst state-names))
   (with-slots ((state-names-inst.preface preface) (state-names-inst.iterate iterate)) state-names-inst
-    (format nil "~a~d" state-names-inst.preface (1- (incf state-names-inst.iterate)))))
+    (format nil "~a~d" state-names-inst.preface (plusplus state-names-inst.iterate))))
 
 (defmethod push-state-2 (state (FA-inst FA) Δ-p start-p final-p)
   (with-FA-slots FA-inst
-    (vector-push-extend state FA-inst.Q)
-    (when Δ-p
-      (vector-push-extend (make-Δ FA-inst.Σ) FA-inst.Δ))
-    (when start-p
-      (push state FA-inst.q0-prev)
-      (setf FA-inst.q₀ state))
-    (if final-p
-	(vector-push-extend state FA-inst.F)
-	(vector-push-extend nil FA-inst.F))
-    (values FA-inst
-	    (1- (fill-pointer FA-inst.Q)))))
+    (vector-push-extend state FA-inst.Q-map)
+    (let ((state-name (make-state-name FA-inst.dsn)))
+      (vector-push-extend state-name FA-inst.Q)
+      (when Δ-p
+	(vector-push-extend (make-Δ FA-inst.Σ) FA-inst.Δ))
+      (when start-p
+	(push state-name FA-inst.q0-prev)
+	(setf FA-inst.q₀ state-name))
+      (if final-p
+	  (vector-push-extend state-name FA-inst.F)
+	  (vector-push-extend nil FA-inst.F))
+      (values FA-inst
+	      (1- (fill-pointer FA-inst.Q))))))
 
 (defmethod push-state ((next (eql 'next)) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
 		       &allow-other-keys)
   (with-FA-slots FA-inst
-    (push-state-2 (make-state-name FA-inst.dsn)
+    (push-state-2 nil
 		  FA-inst
 		  Δ-p
 		  start-p
 		  final-p)))
 
-(defmethod push-state ((state-name string) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
-		       &allow-other-keys)
-  (push-state-2 state-name FA-inst Δ-p start-p final-p))
+;(defmethod push-state ((state-name string) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
+;		       &allow-other-keys)
+;  (push-state-2 state-name FA-inst Δ-p start-p final-p))
 
 (defmethod push-state ((state-list list) (FA-inst FA) &key (Δ-p t) (start-p nil) (final-p nil)
 		       &allow-other-keys)
   (push-state-2 state-list FA-inst Δ-p start-p final-p))
 
 (defmethod push-state ((state (eql nil)) (FA-inst FA) &key &allow-other-keys)
+  (format t "push-state nil")
   (values FA-inst nil))
 
 (defmethod push-state ((state integer) (FA-inst FA) &key &allow-other-keys)
@@ -153,10 +156,10 @@
 			  Q
 			  (1+ cell-iter)))))
 
-;; state-names  ->  preface  iterate
-;; FA           ->  Q  Σ  Σ-in-use  Δ  q₀  q0-prev  F  dsn
-(defmethod traverse-copy-FA ((FA-inst FA))
-  (let ((fa-copy (make-instance 'FA
+;; state-names -> preface iterate
+;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
+(defmethod traverse-copy ((FA-inst FA))
+  (let ((FA-copy (make-instance 'FA
 				 :Q 'Q
 				 :Σ 'Σ
 				 :Σ-in-use 'Σ-in-use
@@ -164,7 +167,10 @@
 				 :q0 'q0
 				 :q0-prev 'q0-prev
 				 :F 'F
-				 :dsn 'dsn)))))
+				 :dsn 'dsn)))
+    (with-FA-slots FA-inst
+      (with-FA-slots FA-copy
+	FA-copy))))
 
 
 				 

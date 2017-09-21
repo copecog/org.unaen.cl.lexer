@@ -359,6 +359,7 @@
     (with-FA-slots nfa-inst
       (let ((start-name (get-state start-state nfa-inst))
 	    (end-name (get-state end-state nfa-inst)))
+	(setf nfa-inst.regex-tree regex-expr-tree)
 	(push start-name nfa-inst.q0-prev)
 	(setf nfa-inst.q0 start-name)
 	(setf (aref nfa-inst.F end-state) end-name)

@@ -2,8 +2,22 @@
 
 ;;; Program-Wide utility functions.
 
+;; state-names -> preface iterate
+;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
 (defmacro with-FA-slots (FA-inst &rest body)
   `(with-slots ((,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".regex-tree")))
+		 regex-tree)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".FA-prev")))
+		 FA-prev)
+		(,(intern (string-upcase (concatenate 'string
+						      (symbol-name FA-inst)
+						      ".Q-map")))
+		 Q-map)
+		(,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".Q")))
 		 Q)
@@ -131,3 +145,9 @@
 ;; Characters: CHARACTER, [EXTENDED|BASE|STANDARD]-CHAR
 (defmethod copy-all ((obj character))
   obj)
+
+(defmacro plusplus (place)
+  (let ((place-before (gensym)))
+    `(let ((,place-before ,place))
+       (incf ,place)
+       ,place-before)))

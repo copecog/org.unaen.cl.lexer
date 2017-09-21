@@ -59,7 +59,9 @@
 	(t DFA-map)))
 
 (defmethod NFA->DFA-map ((NFA-inst NFA))
-  (let ((DFA-map (make-instance 'DFA)))
+  (let ((DFA-map (make-instance 'DFA
+				:regex-tree (regex-tree NFA-inst)
+				:FA-prev NFA-inst)))
     (push-state (ε-closure (get-state (q₀ NFA-inst)
 				      NFA-inst)
 			   NFA-inst)
@@ -165,7 +167,7 @@
 				   DFA-inst
 				   :final-p (funcall final-p a-state-group))
 		     (declare (ignore DFA-inst))
-		     (when (funcall start-p a-state-group)
+		     (when (funcall start-p a-state-group) ;only 
 		       (push pushed-state DFA-inst.q0-prev))
 		     pushed-state))))
 
@@ -227,9 +229,6 @@
 			   (list state-of-non-final-states
 				 state-of-final-states)))))))
 
-(defmethod DFA-min-map->DFA ((DFA-inst DFA))
-  nil)
-
 (defmethod NFA->DFA ((NFA-inst NFA))
   (dfa-map->dfa (nfa->dfa-map NFA-inst)))
 
@@ -250,3 +249,4 @@
 				transit-char
 				DFA-inst)))))
   DFA-inst)
+

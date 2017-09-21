@@ -9,7 +9,16 @@
 	    :reader iterate)))
 
 (defclass FA ()
-  ((Q :initarg :Q
+  ((regex-tree :initarg :regex-tree
+	       :initform nil
+	       :reader regex-tree)
+   (FA-prev :initarg :FA-prev
+	    :initform nil
+	    :reader FA-prev)
+   (Q-map :initarg :Q-map
+	  :initform (make-state-vector 1)
+	  :reader Q-map)
+   (Q :initarg :Q
       :initform (make-state-vector 1)
       :reader Q)
    (Σ :initarg :Σ
@@ -22,6 +31,7 @@
       :initform (make-state-vector 1)
       :reader Δ)
    (q₀ :initarg :q₀
+       :initform nil
        :reader q₀)
    (q0-prev :initarg :q0-prev
 	    :initform (list)

@@ -40,8 +40,13 @@
 				  state-list)))
 	((>= iter (fill-pointer FA-inst.Δ)) state-list))))
 
+;; state-names -> preface iterate
+;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
 (defmethod list-fa ((fa-inst fa))
-  (list (list 'Q '-> (Q fa-inst))
+  (list (list 'regex-tree '-> (regex-tree fa-inst))
+        (list 'FA-prev '-> (FA-prev fa-inst))
+        (list 'Q-map '-> (Q-map fa-inst))
+        (list 'Q '-> (Q fa-inst))
 	(list 'Σ '-> (Σ fa-inst))
 	(list 'Σ-in-use '-> (Σ-in-use fa-inst))
 	(list 'Δ '-> (Δ fa-inst))
