@@ -151,3 +151,11 @@
     `(let ((,place-before ,place))
        (incf ,place)
        ,place-before)))
+
+(defun truth (ignored-var)
+  (declare (ignore ignored-var))
+  t)
+
+(defun false (ignored-var)
+  (declare (ignore ignored-var))
+  nil)
