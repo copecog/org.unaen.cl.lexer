@@ -18,7 +18,7 @@
 
 (defgeneric ε-closure (state NFA))
 
-(defgeneric get-state (state Q))
+(defgeneric get-state (return-value state-property FA))
 
 (defgeneric find-name-equal (thing1 thing2))
 

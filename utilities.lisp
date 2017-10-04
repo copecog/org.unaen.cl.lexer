@@ -159,3 +159,8 @@
 (defun false (ignored-var)
   (declare (ignore ignored-var))
   nil)
+
+(defmacro alias (old-call-name new-call-name)
+  `(defmacro ,new-call-name (&rest args)
+     `(,',old-call-name ,@args)))
+
