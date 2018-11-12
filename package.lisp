@@ -3,9 +3,7 @@
 (defpackage #:lexer
   (:use #:cl)
   (:shadowing-import-from #:alexandria
-			  #:mappend
-			  #:set-equal)
+			  #:mappend #:set-equal)
   (:shadowing-import-from #:closer-mop
-			  #:compute-slots
-			  #:slot-definition-name))
+			  #:compute-slots #:slot-definition-name))
 
