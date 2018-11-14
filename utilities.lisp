@@ -8,11 +8,11 @@
   `(with-slots ((,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".regex-tree")))
-		 regex-tree)
+		  regex-tree)
 		(,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".FA-prev")))
-		 FA-prev)
+		  FA-prev)
 		(,(intern (string-upcase (concatenate 'string
 						      (symbol-name FA-inst)
 						      ".Q-map")))
