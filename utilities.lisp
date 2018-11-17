@@ -1,4 +1,4 @@
-(in-package #:lexer)
+(in-package #:org.unaen.src.cl.lexer)
 
 ;;; Program-Wide utility functions.
 

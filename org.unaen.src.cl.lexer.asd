@@ -1,6 +1,6 @@
 ;;;; lexer.asd
 
-(asdf:defsystem #:lexer
+(asdf:defsystem #:org.unaen.src.cl.lexer
   :description "A somewhat literal implementation of lexing components: NFA's and DFA's"
   :author "Christopher H Cope <copecd@gmail.com>"
   :license "BSD"

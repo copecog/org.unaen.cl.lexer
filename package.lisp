@@ -1,6 +1,6 @@
 ;;;; package.lisp
 
-(defpackage #:lexer
+(defpackage #:org.unaen.src.cl.lexer
   (:use #:cl)
   (:shadowing-import-from #:alexandria
 			  #:mappend #:set-equal)

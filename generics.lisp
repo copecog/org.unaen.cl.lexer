@@ -1,4 +1,4 @@
-(in-package #:lexer)
+(in-package #:org.unaen.src.cl.lexer)
 
 (defgeneric make-state-vector (size &key &allow-other-keys))
 
