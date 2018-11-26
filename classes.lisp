@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 ;;;; classes.lisp
 
 (in-package #:org.unaen.cl.lexer)
-=======
-(in-package #:org.unaen.src.cl.lexer)
->>>>>>> 3d0e88c889e401b779d736afbf2982befcf63325
 
 (defclass state-names ()
   ((preface :initarg :preface

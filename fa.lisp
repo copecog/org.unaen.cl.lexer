@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 ;;;; fa.lisp
 
 (in-package #:org.unaen.cl.lexer)
-=======
-(in-package #:org.unaen.src.cl.lexer)
->>>>>>> 3d0e88c889e401b779d736afbf2982befcf63325
 
 ;;(declaim (optimize (speed 3) (safety 0)))
 

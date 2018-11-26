@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 ;;;; testing.lisp
 
 (in-package #:org.unaen.cl.lexer)
-=======
-(in-package #:org.unaen.src.cl.lexer)
->>>>>>> 3d0e88c889e401b779d736afbf2982befcf63325
 
 ;; regex tree for a floating point number
 ;; [+-]? ( ( ([0-9]+.[0-9]∗|.[0-9]+) ([eE][+-]?[0-9]+)? ) | [0-9]+[eE][+-]?[0-9]+ )
