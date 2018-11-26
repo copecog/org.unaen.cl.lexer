@@ -1,4 +1,6 @@
-(in-package #:lexer)
+;;;; utilities.lisp
+
+(in-package #:org.unaen.cl.lexer)
 
 ;;; Program-Wide utility functions.
 

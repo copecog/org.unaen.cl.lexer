@@ -1,4 +1,6 @@
-(in-package #:lexer)
+;;;; classes.lisp
+
+(in-package #:org.unaen.cl.lexer)
 
 (defclass state-names ()
   ((preface :initarg :preface

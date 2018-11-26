@@ -1,9 +1,9 @@
-;;;; lexer.asd
+;;;; org.unaen.cl.lexer.asd
 
-(asdf:defsystem #:lexer
-  :description "A somewhat literal implementation of lexing components: NFA's and DFA's"
-  :author "Christopher H Cope <copecd@gmail.com>"
-  :license "BSD"
+(asdf:defsystem #:org.unaen.cl.lexer
+  :description "My first real CL project -- A somewhat literal implementation of lexing components: NFA's and DFA's"
+  :author "Christopher H Cope <christopher.h.cope@gmail.com>"
+  :license "MIT"
   :serial t
   :depends-on (#:alexandria
 	       #:closer-mop)

@@ -1,4 +1,6 @@
-(in-package #:lexer)
+;;;; generics.lisp
+
+(in-package #:org.unaen.cl.lexer)
 
 (defgeneric make-state-vector (size &key &allow-other-keys))
 

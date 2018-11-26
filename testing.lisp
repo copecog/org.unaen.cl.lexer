@@ -1,4 +1,6 @@
-(in-package #:lexer)
+;;;; testing.lisp
+
+(in-package #:org.unaen.cl.lexer)
 
 ;; regex tree for a floating point number
 ;; [+-]? ( ( ([0-9]+.[0-9]∗|.[0-9]+) ([eE][+-]?[0-9]+)? ) | [0-9]+[eE][+-]?[0-9]+ )
