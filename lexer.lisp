@@ -1,6 +1,6 @@
 ;;;; lexer.lisp
 
-(in-package #:lexer)
+(in-package #:org.unaen.src.cl.lexer)
 
 ;;(declaim (optimize (speed 3) (safety 0)))
 
