@@ -34,8 +34,4 @@
 
 (defgeneric push-fragment (regex-fragment-tree NFA &rest pass-forward-args))
 
-(defgeneric char-interval->list (char-start char-end))
-
-(defgeneric list->pairs (source-list))
-
 (defgeneric regex-tree->nfa (regex-expr-tree))

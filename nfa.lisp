@@ -243,8 +243,8 @@
 			   (dolist (interval intervals-list char-list)
 			     (setf char-list
 				   (nconc char-list
-					  (char-interval->list (first interval)
-							       (second interval))))))		     
+					  (org.unaen.cl.util:char-interval->list (first interval)
+                                                                                 (second interval))))))		     
 		     NFA-inst)))
 
 ;; (push-fragment-2 'regex-optional
@@ -337,7 +337,7 @@
 (defmethod push-fragment ((inter (eql 'inter)) (NFA-inst NFA) &rest pass-forward-args)
   (let ((inter-args (list (list 'next 'next))))
     (push-fragment-2 'regex-interval
-		     (push-next-states (nconc inter-args (list->pairs pass-forward-args))
+		     (push-next-states (nconc inter-args (org.unaen.cl.util:list->pairs pass-forward-args))
 				       NFA-inst)
 		     NFA-inst)))
 

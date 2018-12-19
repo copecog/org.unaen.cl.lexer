@@ -6,7 +6,7 @@
   :license "MIT"
   :serial t
   :depends-on (#:alexandria
-	       #:closer-mop)
+	       #:org.unaen.cl.util)
   :components ((:file "package")
 	       (:file "utilities")
 	       (:file "classes")

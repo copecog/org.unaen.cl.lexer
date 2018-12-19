@@ -13,7 +13,7 @@
   (equal thing1 thing2))
 
 (defmethod find-name-equal ((thing1 list) (thing2 list))
-  (set-equal thing1 thing2))
+  (alexandria:set-equal thing1 thing2))
 
 (defun find-name-iter (state-name Q cell-iter)
   (if (< cell-iter (fill-pointer Q))
@@ -37,7 +37,7 @@
     (when (< state-int (fill-pointer FA-inst.Q-map))
       (aref FA-inst.Q-map state-int))))
 
-(defmethod push-state-new ((new-state-map list) (FA-inst FA) &key (final-p #'false) &allow-other-keys)
+(defmethod push-state-new ((new-state-map list) (FA-inst FA) &key (final-p #'org.unaen.cl.util:false) &allow-other-keys)
   (let ((state-int (get-state 'integer new-state-map FA-inst)))
     (if state-int
 	(values FA-inst state-int)
@@ -85,9 +85,9 @@
 	     (cond ((< state-iter (fill-pointer (Q-map DFA-map)))
 		    (dolist (transit-char (Σ-in-use NFA-inst))
 		      (multiple-value-bind (DFA-map state-int)
-			  (push-state-new (ε-closure (mappend #'(lambda (x)
-								  (get-transit x transit-char NFA-inst))
-							      (aref (Q-map DFA-map) state-iter))
+			  (push-state-new (ε-closure (alexandria:mappend #'(lambda (x)
+                                                                             (get-transit x transit-char NFA-inst))
+                                                                         (aref (Q-map DFA-map) state-iter))
 						     NFA-inst)
 					  DFA-map
 					  :final-p (is-final-p NFA-inst))
@@ -161,8 +161,8 @@
 
 ;; In this instance state-groups is a list of each state-group list.
 (defmethod push-group-states ((state-groups list) (DFA-inst DFA) &key
-								   (start-p #'false)
-								   (final-p #'false))
+								   (start-p #'org.unaen.cl.util:false)
+								   (final-p #'org.unaen.cl.util:false))
   (with-FA-slots DFA-inst
     (loop :for a-state-group :in state-groups
 	  :collect (multiple-value-bind (DFA-inst pushed-state)
@@ -185,12 +185,12 @@
 	     (if state-groups-unmarked
 		 (let ((a-state-group-unmarked (car state-groups-unmarked)))
 		   (multiple-value-bind (a-state-group-marked a-state-group-unmarked)
-		       (separate-if #'(lambda (state)
-					(state-equal DFA-inst
-						     (first a-state-group-unmarked)
-						     state
-						     :state-groups state-groups))
-				    a-state-group-unmarked)
+		       (org.unaen.cl.util:separate-if #'(lambda (state)
+                                                          (state-equal DFA-inst
+                                                                       (first a-state-group-unmarked)
+                                                                       state
+                                                                       :state-groups state-groups))
+                                                      a-state-group-unmarked)
 		     (group-consistent-iter DFA-inst
 					    state-groups
 					    (if a-state-group-unmarked
@@ -227,7 +227,7 @@
 				  :FA-prev DFA-inst)))
       (with-FA-slots DFA-min
 	(multiple-value-bind (non-final-states final-states)
-	    (vector->list-indices-nil/t DFA-inst.F)
+	    (org.unaen.cl.util:vector->list-indices-nil/t DFA-inst.F)
 	  (multiple-value-bind (DFA-min state-of-non-final-states) 
 	      (push-state non-final-states DFA-min)
 	    (multiple-value-bind (DFA-min state-of-final-states)

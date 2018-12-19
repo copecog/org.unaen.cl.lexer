@@ -22,7 +22,7 @@
 	   
 (defmethod make-state-name ((state-names-inst state-names))
   (with-slots ((state-names-inst.preface preface) (state-names-inst.iterate iterate)) state-names-inst
-    (format nil "~a~d" state-names-inst.preface (plusplus state-names-inst.iterate))))
+    (format nil "~a~d" state-names-inst.preface (org.unaen.cl.util:plusplus state-names-inst.iterate))))
 
 (defmethod push-state-2 (state (FA-inst FA) Δ-p start-p final-p)
   (with-FA-slots FA-inst
