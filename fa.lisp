@@ -98,24 +98,6 @@
 (defmethod get-transit ((state integer) (transit-char character) (FA-inst FA))
   (get-transit-2 state transit-char FA-inst))
 
-;; state-names -> preface iterate
-;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
-(defmethod traverse-copy ((FA-inst FA))
-  (let ((FA-copy (make-instance 'FA
-				:regex-tree 'regex-tree
-				:FA-prev 'FA-prev
-				:Q-map 'Q-map
-				:Q 'Q
-				:Σ 'Σ
-				:Σ-in-use 'Σ-in-use
-				:Δ 'Δ
-				:q0 'q0
-				:q0-prev 'q0-prev
-				:F 'F
-				:dsn 'dsn)))
-    (with-FA-slots FA-inst
-      (with-FA-slots FA-copy
-	FA-copy))))
 
 
 				 

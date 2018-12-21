@@ -2,36 +2,71 @@
 
 (in-package #:org.unaen.cl.lexer)
 
+;;; fa.lisp
 (defgeneric make-state-vector (size &key &allow-other-keys))
-
-(defgeneric make-state-name (state-names))
 
 (defgeneric make-Δ (Σ-type))
 
-(defgeneric push-state (state finite-automaton &key &allow-other-keys))
+(defgeneric make-state-name (state-names))
 
-(defgeneric push-next-states (states-in-tree FA))
+(defgeneric push-state-2 (state FA-inst Δ-p start-p final-p))
 
-(defgeneric push-transit-2 (state-A state-B transit-char FA Σ))
+(defgeneric push-state (state FA-inst &key &allow-other-keys))
 
-(defgeneric delete-transit (state-A state-B transit-char FA))
+(defgeneric get-transit-2 (state transit-char FA-inst))
 
-(defgeneric get-transit (state transit-char Δ))
+(defgeneric get-transit (state transit-char Δ-inst))
 
-(defgeneric ε-closure (state NFA))
+;;; fa.lisp  nfa.lisp
+(defgeneric push-transit-2 (state-A state-B transit-char FA-inst Σ-inst))
 
-(defgeneric get-state (return-value state-property FA))
+;;; nfa.lisp
+(defgeneric push-next-states (states-in-tree FA-inst))
 
+(defgeneric push-fragment-2 (fragment-type specifications-list NFA-inst))
+
+(defgeneric push-fragment (regex-fragment-tree NFA-inst &rest pass-forward-args))
+
+(defgeneric regex-tree->NFA (regex-tree))
+
+;;; dfa.lisp
 (defgeneric find-name-equal (thing1 thing2))
 
-(defgeneric get-Δ (state Δ))
+(defgeneric get-state (return-value state-property FA-inst))
 
-(defgeneric get-all-transit (transit-char Δ))
+(defgeneric push-state-new (state FA-inst &key &allow-other-keys))
 
-(defgeneric push-state-new (state FA &key &allow-other-keys))
+(defgeneric ε-closure (state NFA-inst))
 
-(defgeneric push-fragment-2 (fragment-type specifications-list NFA))
+(defgeneric is-final-p (FA-inst))
 
-(defgeneric push-fragment (regex-fragment-tree NFA &rest pass-forward-args))
+(defgeneric NFA->DFA-map (NFA-inst))
 
-(defgeneric regex-tree->nfa (regex-expr-tree))
+(defgeneric state->group (DFA-inst state state-groups))
+
+(defgeneric state-equal (DFA-inst state-A state-B &key &allow-other-keys))
+
+(defgeneric group-consistent-p (DFA-inst state-groups))
+
+(defgeneric push-group-states (state-groups DFA-inst &key &allow-other-keys))
+
+(defgeneric is-start-p (FA-inst))
+
+(defgeneric group-consistent (DFA-inst state-groups))
+  
+(defgeneric minimize-states (DFA-inst state-groups))
+  
+(defgeneric DFA->DFA-min-map (DFA-inst))
+  
+(defgeneric NFA->DFA (NFA-inst))
+  
+(defgeneric regex-tree->DFA (regex-tree))
+
+(defgeneric map-group-transits (state-groups DFA-inst))
+
+;;; testing.lisp
+(defgeneric get-Δ (state FA-inst))
+
+(defgeneric get-all-transit (transit-char FA-inst))
+
+(defgeneric list-FA (FA-inst))

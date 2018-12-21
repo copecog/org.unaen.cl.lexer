@@ -355,7 +355,7 @@
 
 ;;; **** NFA Toplevel Function **************************************************
 
-(defmethod regex-tree->nfa ((regex-expr-tree list))
+(defmethod regex-tree->NFA ((regex-expr-tree list))
   (multiple-value-bind (nfa-inst start-state end-state)
       (push-fragment regex-expr-tree (make-instance 'nfa))
     (with-FA-slots NFA-inst
