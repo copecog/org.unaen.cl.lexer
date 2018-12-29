@@ -1,5 +1,6 @@
 ;;;; nfa.lisp
 
+
 (in-package #:org.unaen.cl.lexer)
 
 ;;(declaim (optimize (speed 3) (safety 0)))
@@ -366,5 +367,6 @@
 	(setf nfa-inst.q0 start-name)
 	(setf (aref nfa-inst.F end-state) end-name)
 	(values nfa-inst start-state end-state)))))
+
 
 

@@ -99,5 +99,4 @@
   (get-transit-2 state transit-char FA-inst))
 
 
-
 				 

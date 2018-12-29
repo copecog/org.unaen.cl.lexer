@@ -55,3 +55,4 @@
 	(list 'q₀ '-> (q₀ fa-inst))
 	(list 'q0-prev '-> (q0-prev fa-inst))
 	(list 'F '-> (F fa-inst))))
+
