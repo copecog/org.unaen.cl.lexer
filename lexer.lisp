@@ -18,23 +18,23 @@
 ;; The FA Quintuple as a class: 
 (defclass FA ()
   ((Q :initarg :Q
-      :initform 'Q
+      :initform (make-set)
       :reader Q
       :documentation "A finite set of states.")
    (Σ :initarg :Σ
-      :initform 'sigma
+      :initform (make-set)
       :reader Σ
       :documentation "A finite set of input symbols.")
    (Δ :initarg :Δ
-      :initform 'delta
+      :initform (make-map-func 2)
       :reader Δ
       :documentation "A transition function Δ : Q ✕ Σ → P(Q).")
    (q₀ :initarg :q₀
-       :initform 'q_0
+       :initform (make-state)
        :reader q₀
        :documentation "An initial (or start) state q₀ ∊ Q.")
    (F :initarg :F
-      :initform 'F
+      :initform (make-set)
       :reader F
       :documentation "The accepting or final states F ⊆ Q"))
   (:documentation "An object containing the 5-tuple (Q,Σ,Δ,q₀,F) that represents a Finite Automaton."))
@@ -144,3 +144,10 @@
 	           (opt (lits #\+ #\-))
                         (plus (inter #\0 #\9)))))
   "Reglex for a C language floating point number, equivalent to regex:  [+-]?((([0-9]+.[0-9]∗ | .[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+)")
+
+(defun make-set (&key (init-size 10))
+  (declare (type integer init-size))
+  init-size)
+
+(defun make-map (input-dimension)
+  (check-type input-dimension integer)
