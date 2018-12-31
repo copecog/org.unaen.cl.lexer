@@ -59,48 +59,75 @@
 ;;; program is in part for the author to eventually use the reader to full
 ;;; advantage.
 
-(defgeneric eval-reglex->nfa (regular-lisp-expression &rest reglex-tree-decrementer)
-  (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an NFA.")
-  (:method ((reglex list) &rest reglex-dec)
-    "Decompose list into an operator and its operands."
-    (let ((operator (first reglex))
-          (operands (rest reglex)))
-      (apply #'eval-reglex->nfa
-             operator
-             operands)))
-  (:method ((lit (eql 'lit)) &rest reglex-dec)
-    "A literal symbol (character): \"a\" <=> {\"a\"} <=> (lit #\a)"
-    reglex-dec)
-  (:method ((ε (eql 'epsilon)) &rest reglex-dec)
-    "Another name for the ε operator (recurses to eql 'ε method)."
-    (error "Stub!"))
-  (:method ((ε (eql 'ε)) &rest reglex-dec)
-    "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
-    (error "Stub!"))
-  (:method ((or (eql 'or)) &rest reglex-dec)
-    "A string in the language s, (x)or in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
-    (error "Stub!"))
-  (:method ((conc (eql 'conc)) &rest reglex-dec)
-    "The language defined by concatenating a string from language s with a string from language t: st <=> {mn | m∈L(s), n∈L(t)} <=> (conc s t)."
-    (error "Stub!"))
-  (:method ((star (eql 'star)) &rest reglex-dec)
-    "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
-    (error "Stub!"))
-  (:method ((plus (eql 'plus)) &rest reglex-dec)
-    "A string that is a concatenation of one or more strings in the language s: s+ <=> {xy | x∈L(s), y∈L(s*)} <=> (plus s)."
-    (error "Stub!"))
-  (:method ((inter (eql 'inter)) &rest reglex-dec)
-    "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
-    (error "Stub!"))
-  (:method ((opt (eql 'opt)) &rest reglex-dec)
-    "An optional symbol or set: \"a\"? <=> {\"a\",\"\"} <=> (opt #\a)"
-    (error "Stub!"))
-  (:method ((ors (eql 'ors)) &rest reglex-dec)
-    "Multiple or's: s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
-    (error "Stub!"))
-  (:method ((lits (eql 'lits)) &rest reglex-dec)
-    "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
-    (error "Stub!")))
+(defgeneric push-reglex (regl-ex/op fa-inst state-in state-out &rest reglex-op-args)
+  (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an FA."))
+
+(defmethod push-reglex ((reglex list) (fa-inst fa) state-in state-out &rest reglex-args)
+  "Decompose list into an operator and its operands."
+  (let ((operator (first reglex))
+        (operands (rest reglex)))
+    (if (null reglex-args)
+        (push-reglex operator
+                     fa-inst
+                     state-in
+                     state-out
+                     operands)
+        (error "Additional reglex arguments can only be passed for a specific reglex operator."))))
+
+(defmethod push-reglex ((lit (eql 'lit)) (nfa-inst nfa) state-in state-out &rest lit-args)
+  "A literal symbol (character): \"a\" <=> {\"a\"} <=> (lit #\a)"
+  (make-state nfa-inst)
+  (error "Stub!"))
+
+(defmethod push-reglex ((ε (eql 'epsilon)) (nfa-inst nfa) state-in state-out &rest ε-args)
+  "Another name for the ε operator (recurses to eql 'ε method)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((ε (eql 'ε)) (nfa-inst nfa) state-in state-out &rest ε-args)
+  "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((or (eql 'or)) (nfa-inst nfa) state-in state-out &rest or-args)
+  "A string in the language s, (x)or in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((conc (eql 'conc)) (nfa-inst nfa) state-in state-out &rest conc-args)
+  "The language defined by concatenating a string from language s with a string from language t: st <=> {mn | m∈L(s), n∈L(t)} <=> (conc s t)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((star (eql 'star)) (nfa-inst nfa) state-in state-out &rest star-args)
+  "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((plus (eql 'plus)) (nfa-inst nfa) state-in state-out &rest plus-args)
+  "A string that is a concatenation of one or more strings in the language s: s+ <=> {xy | x∈L(s), y∈L(s*)} <=> (plus s)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((inter (eql 'inter)) (nfa-inst nfa) state-in state-out &rest inter-args)
+  "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
+  (error "Stub!"))
+
+(defmethod push-reglex ((opt (eql 'opt)) (nfa-inst nfa) state-in state-out &rest opt-args)
+  "An optional symbol or set: \"a\"? <=> {\"a\",\"\"} <=> (opt #\a)"
+  (error "Stub!"))
+
+(defmethod push-reglex ((ors (eql 'ors)) (nfa-inst nfa) state-in state-out &rest ors-args)
+  "Multiple or's: s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
+  (error "Stub!"))
+
+(defmethod push-reglex ((lits (eql 'lits)) (nfa-inst nfa) state-in state-out &rest lits-args)
+  "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
+  (error "Stub!")))
+
+#|
+(defgeneric foo (par-1 &optional par-2 &rest par-rest)
+  (:method ((par-1 list) &optional (par-2 'par-2-default) &rest par-rest)
+    (apply #'foo
+           (first par-1)
+           par-2 (rest par-1)))
+  (:method ((blah (eql 'blah)) &optional par-2 &rest par-rest)
+    (values blah par-2 par-rest)))
+|#
 
 (defparameter *reglex.lang.c.float*
   '(conc (opt (lits #\+ #\-))
@@ -117,4 +144,3 @@
 	           (opt (lits #\+ #\-))
                         (plus (inter #\0 #\9)))))
   "Reglex for a C language floating point number, equivalent to regex:  [+-]?((([0-9]+.[0-9]∗ | .[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+)")
-
