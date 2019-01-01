@@ -9,11 +9,5 @@
 	       #:org.unaen.cl.util)
   :components ((:file "package")
 	       (:file "utilities")
-	       (:file "classes")
-	       (:file "generics")
-	       (:file "fa")
-	       (:file "nfa")
-	       (:file "dfa")
-               (:file "lexer")
-	       (:file "testing")))
+               (:file "lexer")))
 

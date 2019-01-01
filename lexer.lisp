@@ -2,6 +2,8 @@
 
 (in-package #:org.unaen.cl.lexer)
 
+(alias multiple-value-bind mvb)
+
 ;;; We define a Finite Automaton as a quintuple (Q,Σ,Δ,q₀,F), where:
 ;;;  - Q is a finite set of states.
 ;;;  - Σ (Sigma) is a finite set of input symbols.
@@ -26,7 +28,7 @@
       :reader Σ
       :documentation "A finite set of input symbols.")
    (Δ :initarg :Δ
-      :initform (make-map-func 2)
+      :initform (make-map 2)
       :reader Δ
       :documentation "A transition function Δ : Q ✕ Σ → P(Q).")
    (q₀ :initarg :q₀
@@ -59,7 +61,15 @@
 ;;; program is in part for the author to eventually use the reader to full
 ;;; advantage.
 
-(defgeneric push-reglex (regl-ex/op fa-inst state-in state-out &rest reglex-op-args)
+(defgeneric make-set (initial-elements))
+
+(defgeneric make-map (map-dimension))
+
+(defgeneric make-state (fa-inst))
+
+(defgeneric make-transition (state-a state-b transit-symbol fa-inst))
+
+(defgeneric push-reglex (regl-ex/op state-in state-out fa-inst &rest reglex-op-args)
   (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an FA."))
 
 (defmethod push-reglex ((reglex list) (fa-inst fa) state-in state-out &rest reglex-args)
@@ -76,48 +86,50 @@
 
 (defmethod push-reglex ((lit (eql 'lit)) (nfa-inst nfa) state-in state-out &rest lit-args)
   "A literal symbol (character): \"a\" <=> {\"a\"} <=> (lit #\a)"
-  (make-state nfa-inst)
-  (error "Stub!"))
+  (dolist (transit-symbol lit-args result)
+    
+  (error "stub"))
 
 (defmethod push-reglex ((ε (eql 'epsilon)) (nfa-inst nfa) state-in state-out &rest ε-args)
   "Another name for the ε operator (recurses to eql 'ε method)."
-  (error "Stub!"))
+  (push-reglex 'ε nfa-inst state-in ))
 
 (defmethod push-reglex ((ε (eql 'ε)) (nfa-inst nfa) state-in state-out &rest ε-args)
   "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
-  (error "Stub!"))
+  (make-transition state-in state-out 'ε nfa-inst) 
+  (error "stub"))
 
 (defmethod push-reglex ((or (eql 'or)) (nfa-inst nfa) state-in state-out &rest or-args)
   "A string in the language s, (x)or in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((conc (eql 'conc)) (nfa-inst nfa) state-in state-out &rest conc-args)
   "The language defined by concatenating a string from language s with a string from language t: st <=> {mn | m∈L(s), n∈L(t)} <=> (conc s t)."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((star (eql 'star)) (nfa-inst nfa) state-in state-out &rest star-args)
   "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((plus (eql 'plus)) (nfa-inst nfa) state-in state-out &rest plus-args)
   "A string that is a concatenation of one or more strings in the language s: s+ <=> {xy | x∈L(s), y∈L(s*)} <=> (plus s)."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((inter (eql 'inter)) (nfa-inst nfa) state-in state-out &rest inter-args)
   "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((opt (eql 'opt)) (nfa-inst nfa) state-in state-out &rest opt-args)
   "An optional symbol or set: \"a\"? <=> {\"a\",\"\"} <=> (opt #\a)"
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((ors (eql 'ors)) (nfa-inst nfa) state-in state-out &rest ors-args)
   "Multiple or's: s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
-  (error "Stub!"))
+  (error "stub"))
 
 (defmethod push-reglex ((lits (eql 'lits)) (nfa-inst nfa) state-in state-out &rest lits-args)
   "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
-  (error "Stub!")))
+  (error "stub")))
 
 #|
 (defgeneric foo (par-1 &optional par-2 &rest par-rest)
@@ -127,6 +139,8 @@
            par-2 (rest par-1)))
   (:method ((blah (eql 'blah)) &optional par-2 &rest par-rest)
     (values blah par-2 par-rest)))
+
+(when (= 2019 (nth-value 5 (decode-universal-time (get-universal-time)))) (princ "Happy new year!"))
 |#
 
 (defparameter *reglex.lang.c.float*
@@ -145,9 +159,3 @@
                         (plus (inter #\0 #\9)))))
   "Reglex for a C language floating point number, equivalent to regex:  [+-]?((([0-9]+.[0-9]∗ | .[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+)")
 
-(defun make-set (&key (init-size 10))
-  (declare (type integer init-size))
-  init-size)
-
-(defun make-map (input-dimension)
-  (check-type input-dimension integer)
