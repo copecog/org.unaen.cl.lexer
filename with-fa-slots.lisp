@@ -1,8 +1,6 @@
-;;;; utilities.lisp
+;;;; with-fa-slots.lisp
 
 (in-package #:org.unaen.cl.lexer)
-
-;;; Program-Wide utility functions.
 
 ;; state-names -> preface iterate
 ;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn
@@ -53,5 +51,3 @@
 		 dsn))
        ,FA-inst
      ,@body))
-
-

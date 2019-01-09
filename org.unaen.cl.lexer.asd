@@ -8,6 +8,9 @@
   :depends-on (#:alexandria
 	       #:org.unaen.cl.util)
   :components ((:file "package")
-	       (:file "utilities")
+	       (:file "sets-and-maps")
+               (:file "v-reader")
+               (:file "with-fa-slots")
+               (:file "fa-classes")
                (:file "lexer")))
 
