@@ -1,6 +1,10 @@
 ;;;; with-fa-slots.lisp
 
-(in-package #:org.unaen.cl.lexer)
+(uiop:define-package #:org.unaen.cl.lexer/with-fa-slots
+  (:use #:common-lisp)
+  (:export #:with-FA-slots))   
+
+(in-package #:org.unaen.cl.lexer/with-fa-slots)
 
 ;; state-names -> preface iterate
 ;; FA          -> regex-tree FA-prev Q-map Q Σ Σ-in-use Δ q₀ q0-prev F dsn

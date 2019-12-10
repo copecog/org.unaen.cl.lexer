@@ -4,13 +4,12 @@
   :description "My first real CL project -- A somewhat literal implementation of lexing components: NFA's and DFA's"
   :author "Christopher H Cope <christopher.h.cope@gmail.com>"
   :license "MIT"
-  :serial t
+  :version "0.0.1"
+  :class :package-inferred-system
   :depends-on (#:alexandria
-	       #:org.unaen.cl.util)
+	       #:org.unaen.cl.util
+               #:org.unaen.cl.simple-set)
   :components ((:file "package")
-	       (:file "sets-and-maps")
-               (:file "v-reader")
-               (:file "with-fa-slots")
                (:file "fa-classes")
+               (:file "with-fa-slots")
                (:file "lexer")))
-
