@@ -1,4 +1,4 @@
-;;;; fa.lisp
+;;;; org.unaen.cl.lexer/fa.lisp
 
 (in-package #:org.unaen.cl.lexer)
 

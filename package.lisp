@@ -1,11 +1,20 @@
-;;;; package.lisp
+;;;; org.unaen.cl.lexer/package.lisp
 
-(uiop:define-package #:org.unaen.cl.lexer
+(defpackage #:org.unaen.cl.lexer
   (:use #:cl)
-  (:use-reexport #:org.unaen.cl.lexer/with-fa-slots
-                 #:org.unaen.cl.lexer/fa-classes
-                 #:org.unaen.cl.lexer/lexer))
-
-(in-package #:org.unaen.cl.lexer)
-
-
+  (:local-nicknames (#:alex #:alexandria)
+		    (#:util #:org.unaen.cl.util)
+		    (#:sets #:org.unaen.cl.sets)
+		    (#:maps #:org.unaen.cl.maps))
+  (:export #:FA                        ;classes.lisp
+	   #:FA-system
+	   #:FA-state
+	   #:FA-state-kernel
+	   #:NFA
+	   #:DFA
+	   #:make-state                ;fa.lisp
+	   #:make-transition
+	   #:push-reglex
+	   #:*reglex.lang.c.float*
+	   #:with-FA-slots             ;util.lisp
+	   ))

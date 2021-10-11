@@ -1,36 +1,26 @@
-;;;; fa-classes.lisp
+;;;; org.unaen.cl.lexer/classes.lisp
 
-(uiop:define-package #:org.unaen.cl.lexer/fa-classes
-  (:use #:common-lisp
-        #:org.unaen.cl.simple-set)
-  (:export #:FA
-           #:FA-system
-           #:FA-state
-           #:FA-state-kernel
-           #:NFA
-           #:DFA))   
-
-(in-package #:org.unaen.cl.lexer/fa-classes)
+(in-package #:org.unaen.cl.lexer)
 
 ;; The FA Quintuple as a class: 
 (defclass FA ()
   ((Q :initarg :Q
-      :initform (set)
+      :initform (sets:set)
       :reader Q
       :documentation "A finite set of states.")
    (Σ :initarg :Σ
-      :initform (set)
+      :initform (sets:set)
       :reader Σ
       :documentation "A finite set of input symbols.")
    (Δ :initarg :Δ
-      :initform (map :dimension 2)
+      :initform (maps:map-new :dimension 2)
       :reader Δ
       :documentation "A transition function Δ : Q ✕ Σ → P(Q).")
    (q₀ :initarg :q₀
        :accessor q₀
        :documentation "An initial (or start) state q₀ ∊ Q.")
    (F :initarg :F
-      :initform (set)
+      :initform (sets:set)
       :reader F
       :documentation "The accepting or final states F ⊆ Q"))
   (:documentation "An object containing the 5-tuple (Q,Σ,Δ,q₀,F) that represents a Finite Automaton."))
@@ -45,11 +35,11 @@
        :accessor FA
        :documentation "Current FA instance for reglex.")
    (FA-prev :initarg :FA-prev
-	    :initform (map)
+	    :initform (maps:map-new)
 	    :reader FA-prev
 	    :documentation "A map of FA object to FA object it was derived from.")
    (Q-maps :initarg :Q-maps
-           :initform (map)
+           :initform (maps:map-new)
            :reader Q-maps
            :documentation "Contains a map from derived FA states to the respective previous FA states.")
    (state-kernel :initarg :state-kernel
@@ -75,7 +65,7 @@
 	    :reader iterate
             :documentation "An integer to iterate for state enumeration.")
    (states :initarg :states
-           :initform (set)
+           :initform (sets:set)
            :reader states
            :documentation "All the states generated from this kernel."))
   (:documentation "An object used to contain the state of parameters for state generation."))
