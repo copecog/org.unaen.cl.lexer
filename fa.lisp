@@ -83,9 +83,17 @@
          state-next
          nfa-inst
          lit-args))
-  
+
+(defmethod push-reglex ((lits (eql 'lits)) state-prev state-next (nfa-inst nfa) &rest lits-args)
+  "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
+  (error "stub")))
+
 (defmethod push-reglex ((or (eql 'or)) state-prev state-next (nfa-inst nfa) &rest or-args)
   "A string in the language s, (x)or in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
+  (error "stub"))
+
+(defmethod push-reglex ((ors (eql 'ors)) state-prev state-next (nfa-inst nfa) &rest ors-args)
+  "Langauge is set: [st...v] <=> s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
   (error "stub"))
 
 (defmethod push-reglex ((conc (eql 'conc)) state-prev state-next (nfa-inst nfa) &rest conc-args)
@@ -108,27 +116,35 @@
   "An optional symbol or set: \"a\"? <=> {\"a\",\"\"} <=> (opt #\a)"
   (error "stub"))
 
-(defmethod push-reglex ((ors (eql 'ors)) state-prev state-next (nfa-inst nfa) &rest ors-args)
-  "Multiple or's: s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
-  (error "stub"))
 
-(defmethod push-reglex ((lits (eql 'lits)) state-prev state-next (nfa-inst nfa) &rest lits-args)
-  "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
-  (error "stub")))
 
 (defparameter *reglex.lang.c.float*
-  '(conc (opt (lits #\+ #\-))
+  '(conc (opt (lit #\+ #\-))
          (or (conc (or (conc (plus (inter #\0 #\9))
                              (lit #\.)
                              (star (inter #\0 #\9)))
 	               (conc (lit #\.)
-			     (plus (inter #\0 #\9))))
-		   (opt (conc (lits #\e #\E)
-		              (opt (lits #\+ #\-))
+	                     (plus (inter #\0 #\9))))
+		   (opt (conc (lit #\e #\E)
+		              (opt (lit #\+ #\-))
 		              (plus (inter #\0 #\9)))))
-	     (conc (plus (inter #\0 #\9))
-	           (lits #\e #\E)
-	           (opt (lits #\+ #\-))
-                        (plus (inter #\0 #\9)))))
+	      (conc (plus (inter #\0 #\9))
+	            (lit #\e #\E)
+	            (opt (lit #\+ #\-))
+                    (plus (inter #\0 #\9))))))
   "Reglex for a C language floating point number, equivalent to regex:  [+-]?((([0-9]+.[0-9]∗ | .[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+)")
 
+#|
+NAME            OPERATOR        EXPRESSION     NOTES
+ literal         lit | lits      "a"            The set consisting of the one-letter string {"a"}. (lit #\a #\b ...) => (ors (lit #\a) (lit #\b) ...)
+ epsilon         ε | epsilon     ε              The set containing the empty string {""}.
+ concatenate     conc            st             Strings constructed by concatenating a string from the language of s with a string from the language of t.
+ or              or              s|t            Strings from both languages.
+ star            star            s*             Each string in the language of s is a concatenation of ANY number of strings in the language of s.
+ plus            plus            s+             Each string in the language of s is a concatenation of ONE or more strings in the language of s.
+ optional        opt             s?             A string in the language of s can occur ZERO or ONE time.
+ brackets        ors             [ab01]         The set of these letters: "a"|"b"|"0"|"1"
+ interval        inter           [a-c1-3]       The set of all letters in the respective intervals: "a"|"b"|"c"|"1"|"2"|"3"
+
+
+|#
