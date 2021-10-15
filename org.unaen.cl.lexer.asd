@@ -17,4 +17,5 @@
 	       (:file "nfa")
 	       (:file "dfa")
 	       (:file "compiler")
-	       (:file "lexer")))
+	       (:file "lexer")
+	       (:file "testing"))

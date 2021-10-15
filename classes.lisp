@@ -13,7 +13,7 @@
       :reader Σ
       :documentation "A finite set of input symbols.")
    (Δ :initarg :Δ
-      :initform (maps:map-new :dimension 2)
+      :initform (maps:map :dimension 2)
       :reader Δ
       :documentation "A transition function Δ : Q ✕ Σ → P(Q).")
    (q₀ :initarg :q₀
@@ -35,15 +35,15 @@
        :accessor FA
        :documentation "Current FA instance for reglex.")
    (FA-prev :initarg :FA-prev
-	    :initform (maps:map-new)
+	    :initform (maps:map)
 	    :reader FA-prev
 	    :documentation "A map of FA object to FA object it was derived from.")
    (Q-maps :initarg :Q-maps
-           :initform (maps:map-new)
+           :initform (maps:map)
            :reader Q-maps
            :documentation "Contains a map from derived FA states to the respective previous FA states.")
    (state-kernel :initarg :state-kernel
-                 :initform nil
+                 :initform (make-instance 'FA-state-kernel)
                  :reader state-kernel
                  :documentation "Object containing state of generation for FA states."))
   (:documentation "All relevant data for productions of various finite automatons."))
