@@ -36,9 +36,28 @@ advantage.
 
 (defun FA-system (FA-type)
   "Return an FA class of object of type FA, NFA, or DFA (or subclass)."
-  (make-instance 'FA-system :FA (make-instance FA-type)))
+  (if (not (subtypep FA-type 'FA))
+      (error "FA-type must be a class or subclass of FA")      
+      (let* ((FA           (make-instance FA-type))
+	     (state-kernel (make-instance 'FA-state-kernel))
+	     (FA-system    (make-instance 'FA-system
+					  :FA FA
+					  :state-kernel state-kernel))
+	     (Q            (slot-value FA 'Q)))
+	(setf (slot-value state-kernel 'states) Q
+	      (slot-value state-kernel 'system) FA-system))))
 
-(defgeneric make-state ())
+(defmethod make-state ((state-kernel FA-state-kernel))
+  (sets:set-add-element (make-instance 'FA-state
+				       :enum (state-kernel++ state-kernel)
+				       :kernel state-kernel)
+			(slot-value state-kernel 'states))))
+
+(defmethod state-kernel++ ((state-kernel FA-state-kernel))
+  (let ((iterate++ (+ (slot-value state-kernel 'iterate)
+		      1)))
+    (setf (slot-value state-kernel 'iterate)
+	  iterate++))))
 
 (defgeneric make-transition (transit-symbol state-prev state-next fa-inst)
   (:method ((transit-symbol character) (state-prev atom) (state-next atom) (fa-inst fa))

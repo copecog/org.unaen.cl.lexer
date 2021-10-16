@@ -43,7 +43,7 @@
            :reader Q-maps
            :documentation "Contains a map from derived FA states to the respective previous FA states.")
    (state-kernel :initarg :state-kernel
-                 :initform (make-instance 'FA-state-kernel)
+                 :initform nil
                  :reader state-kernel
                  :documentation "Object containing state of generation for FA states."))
   (:documentation "All relevant data for productions of various finite automatons."))
@@ -65,9 +65,13 @@
 	    :reader iterate
             :documentation "An integer to iterate for state enumeration.")
    (states :initarg :states
-           :initform (sets:set)
+           :initform nil
            :reader states
-           :documentation "All the states generated from this kernel."))
+           :documentation "The states generated from this kernel, should be same (EQ) set to Q in FA when kernel part of system.")
+   (system :initarg :system
+	   :initform nil
+	   :reader system
+	   :documentation "The respective parent FA-system when part of a system."))
   (:documentation "An object used to contain the state of parameters for state generation."))
 
 (defclass NFA (FA) ()
