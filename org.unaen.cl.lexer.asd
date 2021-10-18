@@ -18,4 +18,4 @@
 	       (:file "dfa")
 	       (:file "compiler")
 	       (:file "lexer")
-	       (:file "testing"))
+	       (:file "testing")))

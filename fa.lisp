@@ -38,32 +38,33 @@ advantage.
   "Return an FA class of object of type FA, NFA, or DFA (or subclass)."
   (if (not (subtypep FA-type 'FA))
       (error "FA-type must be a class or subclass of FA")      
-      (let* ((FA           (make-instance FA-type))
-	     (state-kernel (make-instance 'FA-state-kernel))
+      (let* ((Q            (sets:set))
+	     (FA           (make-instance FA-type
+					  :Q Q))
+	     (state-kernel (make-instance 'FA-state-kernel
+					  :states Q))
 	     (FA-system    (make-instance 'FA-system
 					  :FA FA
-					  :state-kernel state-kernel))
-	     (Q            (slot-value FA 'Q)))
-	(setf (slot-value state-kernel 'states) Q
-	      (slot-value state-kernel 'system) FA-system))))
+					  :state-kernel state-kernel)))
+	FA-system)))
 
 (defmethod make-state ((state-kernel FA-state-kernel))
   (sets:set-add-element (make-instance 'FA-state
 				       :enum (state-kernel++ state-kernel)
 				       :kernel state-kernel)
-			(slot-value state-kernel 'states))))
+			(slot-value state-kernel 'states)))
 
 (defmethod state-kernel++ ((state-kernel FA-state-kernel))
   (let ((iterate++ (+ (slot-value state-kernel 'iterate)
 		      1)))
     (setf (slot-value state-kernel 'iterate)
-	  iterate++))))
+	  iterate++)))
 
 (defgeneric make-transition (transit-symbol state-prev state-next fa-inst)
   (:method ((transit-symbol character) (state-prev atom) (state-next atom) (fa-inst fa))
     (error "stub"))
   (:method ((ε (eql 'epsilon)) (state-prev atom) (state-next atom) (nfa-inst nfa))
-    (error "stub"))
+    (error "stub")))
 
 
 #|
