@@ -42,92 +42,113 @@ advantage.
 	     (FA           (make-instance FA-type
 					  :Q Q))
 	     (state-kernel (make-instance 'FA-state-kernel
-					  :states Q))
-	     (FA-system    (make-instance 'FA-system
-					  :FA FA
-					  :state-kernel state-kernel)))
-	FA-system)))
+					  :states Q)))
+	(make-instance 'FA-system
+		       :FA FA
+		       :state-kernel state-kernel))))
+
+(defgeneric make-state (FA-something))
+
+(defmethod make-state ((FA-system FA-system))
+  (with-slots ((state-kernel state-kernel)) FA-system
+    (make-state state-kernel)))
 
 (defmethod make-state ((state-kernel FA-state-kernel))
-  (sets:set-add-element (make-instance 'FA-state
-				       :enum (state-kernel++ state-kernel)
-				       :kernel state-kernel)
-			(slot-value state-kernel 'states)))
+  (with-slots ((states states) (iterate iterate)) state-kernel
+    (sets:set-add-element (make-instance 'FA-state
+					 :enum (incf iterate)
+					 :kernel state-kernel)
+			  states)))
 
-(defmethod state-kernel++ ((state-kernel FA-state-kernel))
-  (let ((iterate++ (+ (slot-value state-kernel 'iterate)
-		      1)))
-    (setf (slot-value state-kernel 'iterate)
-	  iterate++)))
+(defgeneric make-transition (transit-symbol FA-state-previous FA-state-next FA-something))
 
-(defgeneric make-transition (transit-symbol state-prev state-next fa-inst)
-  (:method ((transit-symbol character) (state-prev atom) (state-next atom) (fa-inst fa))
-    (error "stub"))
-  (:method ((ε (eql 'epsilon)) (state-prev atom) (state-next atom) (nfa-inst nfa))
-    (error "stub")))
+(defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (FA-system FA-system))
+  (with-slots ((FA FA)) FA-system
+    (make-transition-2 transit-symbol state-prev state-next FA)))
 
+(defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (NFA NFA))
+  (make-transition-2 transit-symbol state-prev state-next NFA))
+
+(defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (NFA NFA))
+  (make-transition-2 'ε state-prev state-next NFA))
+
+(defun make-transition-2 (transit-symbol state-prev state-next FA)
+  "Add mapping of state-prev ✕ transit-symbol → {state-next, ...} ∊ P(Q)."
+  (with-slots ((Δ Δ)) FA
+    (let* ((map-in `(,state-prev ,transit-symbol))
+	   (states (maps:map-get map-in
+				 Δ)))
+      (etypecase states ;If set add element, otherwise create set with element.
+	(sets:set (sets:set-add-element state-next
+					states))
+	(null     (when (maps:map-add (sets:set state-next)
+				      map-in
+				      Δ)
+		    state-next))))))
 
 #|
+A relatively strict progression of operators from regular expressions:
 NAME            OPERATOR        EXPRESSION     NOTES
-  literal         lit | lits      "a"            The set consisting of the one-letter string {"a"}. 
-                                                   (lit #\a #\b ...) => (ors (lit #\a) (lit #\b) ...)
-  epsilon         ε | epsilon     ε              The set containing the empty string {""}.
+  literal         LIT             "a"            The set consisting of the one-letter string {"a"}. 
+                                                   (lit #\a)
+  epsilon         ε               ε              The set containing the empty string {""}.
   concatenate     conc            st             Strings constructed by concatenating a string from the language 
                                                    of s with a string from the language of t.
   or              or              s|t            Strings from both languages.
-  brackets        ors             [ab01]         The set of these letters: "a"|"b"|"0"|"1"
-  interval        inter           [a-c1-3]       The set of all letters in the respective 
-                                                   intervals: "a"|"b"|"c"|"1"|"2"|"3"
+  brackets*       ors             [stvu]         (ors s t v u) => (or s (or t (or v u)))
+  literals*       lits            [abcd]         (lits #\a #\b #\c #\d) => (ors (lit #\a) (lit #\b) (lit #\c) (lit #\d))
+                                                   => (or (lit #\a) (or (lit #\b) (or (lit #\c) (lit #\d))))
+  interval        inter           [a-c]          The set of all letters in the respective interval: 
+                                                   (inter #\a #\c) => (lits #\a #\b #\c)
+  intervals*      inters          [a-c1-3]       Multiple intervals:
+                                                   (inters #\a #\c 1 3) => (ors (lits #\a #\b #\c) (lits #\1 #\2 #\3))
   star            star            s*             Each string in the language of s is a concatenation of ANY number 
                                                    of strings in the language of s.
   plus            plus            s+             Each string in the language of s is a concatenation of ONE or 
                                                    more strings in the language of s.
   optional        opt             s?             A string in the language of s can occur ZERO or ONE time.
+
+However, it makes more sense to implement inline ors with or, lits with lit, and inters with inter. It will 
+also reduce the numbers of states and transitions right off (even though they will be minimized in conversion
+to a DFA anyways.
 |#
 
-  
-(defgeneric push-reglex (regl-ex/op state-prev state-next fa-inst &rest reglex-op-args)
+(defgeneric push-reglex (reglex-list FA-state-previous FA-state-next FA-system &rest reglex-op-args)
   (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an FA."))
 
-(defmethod push-reglex ((reglex list) state-prev state-next (fa-inst fa) &rest reglex-op-args)
+(defmethod push-reglex ((reglex list) state-prev state-next (fa-system fa-system) &rest reglex-op-args)
   "Decompose list into an operator and its operands."
   (let ((operator (first reglex))
         (operands (rest reglex)))
-    (if reglex-op-args
-        (error "Additional reglex arguments passed when reglex in list/tree form.")
-        (push-reglex operator
-                     state-prev
-                     state-next
-                     fa-inst
-                     operands))))
+    (push-reglex operator
+                 state-prev
+                 state-next
+                 fa-system
+                 operands))))
 
-(defmethod push-reglex ((ε (eql 'epsilon)) state-prev state-next (nfa-inst nfa) &rest reglex-op-args)
-  "Another name for the ε operator (recurses to eql 'ε method)."
-  (if reglex-op-args
-      (error "Additional reglex arguments passed for epsilon operator.") 
-      (push-reglex 'ε
-                   state-prev
-                   state-next
-                   nfa-inst)
-
-;; Every method needs to return the FA and the state-begin and state-end. What does it mean to have multiple epsilon transitions?
-(defmethod push-reglex ((ε (eql 'ε)) state-prev state-next (nfa-inst nfa) &rest reglex-op-args)
+(defmethod push-reglex ((ε (eql 'ε)) state-prev state-next (fa-system fa-system) &rest reglex-op-args)
   "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
   (if reglex-op-args
-      (error "Additional reglex arguments passed for ε operator.") 
-      (make-transition 'ε
-                       state-prev
-                       state-next
-                       nfa-inst)))
+      (error "Additional reglex arguments passed to ε operator.")
+      (with-slots ((nfa fa)) fa-system
+	(make-transition 'ε
+			 state-prev
+			 state-next
+			 nfa))))
 
-(defmethod push-reglex ((lit (eql 'lit)) state-prev state-next (nfa-inst nfa) &rest lit-args)
-  "A literal symbol (character): \"a\" <=> {\"a\"} <=> (lit #\a)"
-  (apply #'push-reglex
-         'or
-         state-prev
-         state-next
-         nfa-inst
-         lit-args))
+(defmethod push-reglex ((lit (eql 'lit)) state-prev state-next (fa-system fa-system) &rest lit-args)
+  "One or more literal symbols (character): \"ab\" <=> {\"a\", \"b\"} <=> (lit #\a #\b)"
+  (with-slots ((state-kernel state-kernel) (fa fa)) fa-system
+    (loop :for character :in lit-args
+	  :do (make-transition 'ε
+			       (make-transition character
+						state-prev
+						(make-state state-kernel)
+						fa)
+			       state-next
+			       fa))))
+			       
+
 #|
 (defmethod push-reglex ((lits (eql 'lits)) state-prev state-next (nfa-inst nfa) &rest lits-args)
   "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
