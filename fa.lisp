@@ -72,12 +72,15 @@ advantage.
 (defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (NFA NFA))
   (make-transition-2 'ε state-prev state-next NFA))
 
+;; Instead of starting with a set Σ, we are adding the actual '(type character) or 'ε from the reglex.
 (defun make-transition-2 (transit-symbol state-prev state-next FA)
   "Add mapping of state-prev ✕ transit-symbol → {state-next, ...} ∊ P(Q)."
-  (with-slots ((Δ Δ)) FA
-    (let* ((map-in `(,state-prev ,transit-symbol))
-	   (states (maps:map-get map-in
-				 Δ)))
+  (with-slots ((Σ Σ) (Δ Δ)) FA
+    (let* ((transit-symbol  (sets:set-add-element transit-symbol
+						  Σ))
+	   (map-in         `(,state-prev ,transit-symbol))
+	   (states          (maps:map-get map-in
+					  Δ)))
       (etypecase states ;If set add element, otherwise create set with element.
 	(sets:set (sets:set-add-element state-next
 					states))
@@ -118,6 +121,7 @@ to a DFA anyways.
 
 (defmethod push-reglex ((reglex list) state-prev state-next (fa-system fa-system) &rest reglex-op-args)
   "Decompose list into an operator and its operands."
+  (declare (ignore reglex-op-args))
   (let ((operator (first reglex))
         (operands (rest reglex)))
     (push-reglex operator
@@ -147,8 +151,14 @@ to a DFA anyways.
 						fa)
 			       state-next
 			       fa))))
-			       
 
+(defmethod test-push-reglex ((lit (eql 'lit)))
+  (let ((fa-system (fa-system 'nfa))
+	
+	
+
+
+  
 #|
 (defmethod push-reglex ((lits (eql 'lits)) state-prev state-next (nfa-inst nfa) &rest lits-args)
   "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
