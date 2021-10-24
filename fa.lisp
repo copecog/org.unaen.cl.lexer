@@ -1,7 +1,6 @@
 ;;;; org.unaen.cl.lexer/fa.lisp
 
 (in-package #:org.unaen.cl.lexer)
-
 #|
 We define a Finite Automaton as a quintuple (Q,Σ,Δ,q₀,F), where:
  - Q is a finite set of states.
@@ -33,7 +32,6 @@ depending on the Reader in Common Lisp to do this for us, and writing this
 program is in part for the author to eventually use the reader to full
 advantage.
 |#
-
 (defun FA-system (FA-type)
   "Return an FA class of object of type FA, NFA, or DFA (or subclass)."
   (if (not (subtypep FA-type 'FA))
@@ -83,16 +81,15 @@ advantage.
 					  Δ)))
       (etypecase states ;If set add element, otherwise create set with element.
 	(sets:set (sets:set-add-element state-next
-					states))
+					states)); =>state-next
 	(null     (when (maps:map-add (sets:set state-next)
 				      map-in
 				      Δ)
 		    state-next))))))
-
 #|
 A relatively strict progression of operators from regular expressions:
 NAME            OPERATOR        EXPRESSION     NOTES
-  literal         LIT             "a"            The set consisting of the one-letter string {"a"}. 
+  literal         lit             "a"            The set consisting of the one-letter string {"a"}. 
                                                    (lit #\a)
   epsilon         ε               ε              The set containing the empty string {""}.
   concatenate     conc            st             Strings constructed by concatenating a string from the language 
@@ -111,26 +108,25 @@ NAME            OPERATOR        EXPRESSION     NOTES
                                                    more strings in the language of s.
   optional        opt             s?             A string in the language of s can occur ZERO or ONE time.
 
-However, it makes more sense to implement inline ors with or, lits with lit, and inters with inter. It will 
+*However, it makes more sense to implement inline ors with or, lits with lit, and inters with inter. It will 
 also reduce the numbers of states and transitions right off (even though they will be minimized in conversion
 to a DFA anyways.
 |#
-
 (defgeneric push-reglex (reglex-list FA-state-previous FA-state-next FA-system &rest reglex-op-args)
   (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an FA."))
 
-(defmethod push-reglex ((reglex list) state-prev state-next (fa-system fa-system) &rest reglex-op-args)
+(defmethod push-reglex ((reglex list) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest reglex-op-args)
   "Decompose list into an operator and its operands."
   (declare (ignore reglex-op-args))
   (let ((operator (first reglex))
         (operands (rest reglex)))
-    (push-reglex operator
-                 state-prev
-                 state-next
-                 fa-system
-                 operands))))
+    (apply #'push-reglex operator
+                         state-prev
+                         state-next
+                         fa-system
+                         operands)))
 
-(defmethod push-reglex ((ε (eql 'ε)) state-prev state-next (fa-system fa-system) &rest reglex-op-args)
+(defmethod push-reglex ((ε (eql 'ε)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest reglex-op-args)
   "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
   (if reglex-op-args
       (error "Additional reglex arguments passed to ε operator.")
@@ -140,55 +136,66 @@ to a DFA anyways.
 			 state-next
 			 nfa))))
 
-(defmethod push-reglex ((lit (eql 'lit)) state-prev state-next (fa-system fa-system) &rest lit-args)
+(defmethod push-reglex ((lit (eql 'lit)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest lit-args)
   "One or more literal symbols (character): \"ab\" <=> {\"a\", \"b\"} <=> (lit #\a #\b)"
   (with-slots ((state-kernel state-kernel) (fa fa)) fa-system
+    ;; Make new states with character transitions from state-prev to new states, and then ε transitions from
+    ;;   each of those new states to state-next.
     (loop :for character :in lit-args
-	  :do (make-transition 'ε
-			       (make-transition character
-						state-prev
-						(make-state state-kernel)
-						fa)
-			       state-next
-			       fa))))
-
-(defmethod test-push-reglex ((lit (eql 'lit)))
-  (let ((fa-system (fa-system 'nfa))
-	
-	
-
-
-  
+	  :do (let ((char-state-prev/next (make-state state-kernel)))
+		(make-transition character
+				 state-prev
+				 char-state-prev/next
+				 fa)
+		(make-transition 'ε
+				 char-state-prev/next
+				 state-next
+				 fa))
+	  :finally (return state-next))))
 #|
-(defmethod push-reglex ((lits (eql 'lits)) state-prev state-next (nfa-inst nfa) &rest lits-args)
+(defmethod push-reglex ((lits (eql 'lits)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest lits-args)
   "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
   (error "stub")))
 |#
-(defmethod push-reglex ((or (eql 'or)) state-prev state-next (nfa-inst nfa) &rest or-args)
+(defmethod push-reglex ((or (eql 'or)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest or-args)
   "A string in the language s, (x)or in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
-  (error "stub"))
+  (with-slots ((state-kernel state-kernel) (fa fa)) fa-system
+    (loop :for reglex :in or-args
+	  :do (let ((reglex-state-prev (make-state state-kernel))
+		    (reglex-state-next (make-state state-kernel)))
+		(make-transition 'ε
+				 state-prev
+				 reglex-state-prev
+				 fa)
+		(make-transition 'ε
+				 (push-reglex reglex
+					      reglex-state-prev
+					      reglex-state-next
+					      fa-system); => reglex-state-next
+				 state-next
+				 fa)))))
 #|
-(defmethod push-reglex ((ors (eql 'ors)) state-prev state-next (nfa-inst nfa) &rest ors-args)
+(defmethod push-reglex ((ors (eql 'ors)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest ors-args)
   "Langauge is set: [st...v] <=> s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
   (error "stub"))
 |#
-(defmethod push-reglex ((conc (eql 'conc)) state-prev state-next (nfa-inst nfa) &rest conc-args)
+(defmethod push-reglex ((conc (eql 'conc)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest conc-args)
   "The language defined by concatenating a string from language s with a string from language t: st <=> {mn | m∈L(s), n∈L(t)} <=> (conc s t)."
   (error "stub"))
 
-(defmethod push-reglex ((star (eql 'star)) state-prev state-next (nfa-inst nfa) &rest star-args)
+(defmethod push-reglex ((star (eql 'star)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest star-args)
   "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
   (error "stub"))
 
-(defmethod push-reglex ((plus (eql 'plus)) state-prev state-next (nfa-inst nfa) &rest plus-args)
+(defmethod push-reglex ((plus (eql 'plus)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest plus-args)
   "A string that is a concatenation of one or more strings in the language s: s+ <=> {xy | x∈L(s), y∈L(s*)} <=> (plus s)."
   (error "stub"))
 
-(defmethod push-reglex ((inter (eql 'inter)) state-prev state-next (nfa-inst nfa) &rest inter-args)
+(defmethod push-reglex ((inter (eql 'inter)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest inter-args)
   "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
   (error "stub"))
 
-(defmethod push-reglex ((opt (eql 'opt)) state-prev state-next (nfa-inst nfa) &rest opt-args)
+(defmethod push-reglex ((opt (eql 'opt)) (state-prev fa-state) (state-next fa-state) (fa-system fa-system) &rest opt-args)
   "An optional symbol or set: \"a\"? <=> {\"a\",\"\"} <=> (opt #\a)"
   (error "stub"))
 
