@@ -1,8 +1,37 @@
 ;;;; org.unaen.cl.lexer/classes.lisp
 
 (in-package #:org.unaen.cl.lexer)
+#| 
+We define a Finite Automaton as a quintuple (Q,Σ,Δ,q₀,F), where:
+ - Q is a finite set of states.
+ - Σ (Sigma) is a finite set of input symbols.
+ - Δ (Delta) is a transition function Δ: Q ✕ Σ → P(Q).
+ - q₀ is an initial (or start) state q₀ ∊ Q.
+ - F is the accepting or final states F ⊆ Q.
 
-;; The FA Quintuple as a class: 
+Given an FA and a sequence of input symbols - then this sequence is in the
+(regular) language defined by the FA if there exists a sequence of states
+beginning at the start state and connected via transititions on each
+subsequent input symbol until ending on an accepting state:
+  q₀∊Q, q_1∊Q, ... , q_n∊F⊆Q.
+
+In a nondeterminate finite automaton transistions from state to state are
+based on input symbols σ∊Σ OR on an additional special symbol ε (epsilon),
+called an epsilon transition, thus creating the non-deterministic nature
+of the finite automaton.
+
+It is only sufficient that a sequence of states and transitions exist for
+our sequence of input symbols to be accepted as a string in our regular
+language defined by the NFA.
+
+Regular expressions themselves can not be defined with a regular language:
+This is convenient for us as using an s-expression based notation will
+present a type of already parsed form, thus avoiding the need of a parser
+or lexer in using our forms to specify a regular language. We are actually
+depending on the Reader in Common Lisp to do this for us, and writing this
+program is in part for the author to eventually use the reader to full
+advantage. 
+|#
 (defclass FA ()
   ((Q :initarg :Q
       :initform (sets:set)
@@ -65,7 +94,7 @@
 	    :reader iterate
             :documentation "An integer to iterate for state enumeration.")
    (states :initarg :states
-           :initform (maps:map)
+           :initform (sets:set)
            :reader states
            :documentation "The states generated from this kernel, should be same (EQ) set to Q in FA when kernel part of system."))
   (:documentation "An object used to contain the state of parameters for state generation."))
@@ -74,4 +103,4 @@
   (:documentation "An object containing the 5-tuple (Q,Σ,Δ,q₀,F) - inherited from the FA class - that represents a Nondeterministic Finite Automaton."))
 
 (defclass DFA (FA) ()
-  (:documentation "An object containing the 5-tuple (Q,Σ,Δ,q₀,F) - inherited from the FA class - that represents a Nondeterministic Finite Automaton."))
+  (:documentation "An object containing the 5-tuple (Q,Σ,Δ,q₀,F) - inherited from the FA class - that represents a Deterministic Finite Automaton."))
