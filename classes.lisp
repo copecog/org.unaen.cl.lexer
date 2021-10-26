@@ -1,6 +1,7 @@
 ;;;; org.unaen.cl.lexer/classes.lisp
 
 (in-package #:org.unaen.cl.lexer)
+
 #| 
 We define a Finite Automaton as a quintuple (Q,Σ,Δ,q₀,F), where:
  - Q is a finite set of states.
@@ -32,6 +33,7 @@ depending on the Reader in Common Lisp to do this for us, and writing this
 program is in part for the author to eventually use the reader to full
 advantage. 
 |#
+
 (defclass FA ()
   ((Q :initarg :Q
       :initform (sets:set)

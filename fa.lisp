@@ -15,11 +15,7 @@
 		       :FA FA
 		       :state-kernel state-kernel))))
 
-(defgeneric make-state (FA-something))
-
-(defmethod make-state ((FA-system FA-system))
-  (with-slots ((state-kernel state-kernel)) FA-system
-    (make-state state-kernel)))
+(defgeneric make-state (FA-state-kernel))
 
 (defmethod make-state ((state-kernel FA-state-kernel))
   (with-slots ((states states) (iterate iterate)) state-kernel
@@ -28,15 +24,18 @@
 					 :kernel state-kernel)
 			  states)))
 
-(defgeneric make-transition (transit-symbol FA-state-previous FA-state-next FA-something))
+(defgeneric make-transition (transit-symbol FA-state-previous FA-state-next FA)
+  (:documentation "Add mapping of state-prev ✕ transit-symbol → {state-next, ...} ∊ P(Q)."))
 
-(defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (FA-system FA-system))
-  (with-slots ((FA FA)) FA-system
-    (make-transition transit-symbol state-prev state-next FA)))
+(defmethod make-transition :before (transit-symbol (state-prev FA-state) (state-next FA-state) (FA FA))
+  (with-slots ((Q Q)) FA
+    (unless (sets:set-get-element state-prev Q)
+      (error "STATE-PREV is not a member of set of states Q in FA."))
+    (unless (sets:set-get-element state-next Q)
+      (error "STATE-NEXT is not a member of set of states Q in FA."))))
 
 ;; Instead of starting with a set Σ, we are adding the actual '(type character) or 'ε from the reglex.
 (flet ((make-transition (transit-symbol state-prev state-next FA)
-	 "Add mapping of state-prev ✕ transit-symbol → {state-next, ...} ∊ P(Q)."
 	 (with-slots ((Σ Σ) (Δ Δ)) FA
 	   (let* ((transit-symbol (sets:set-add-element transit-symbol
 							Σ))
@@ -51,12 +50,15 @@
 					 Δ)
 		       state-next)))))))
   
-  (defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (NFA NFA))
-    (make-transition transit-symbol state-prev state-next NFA))
+  (defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (FA FA))
+    (make-transition transit-symbol state-prev state-next FA))
   
   (defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (NFA NFA))
     (make-transition 'ε state-prev state-next NFA)))
+
 #|
+Some notes while thinking about what I need to implement for PUSH-REGLEX.
+
 A relatively strict progression of operators from regular expressions:
 NAME            OPERATOR      EXPRESSION     NOTES
   literal         lit           "a"            The set consisting of the one-letter string {"a"}. 
@@ -84,8 +86,8 @@ to a DFA anyways.
 |#
 
 ;;; Give a reglex list expression, a start state, and an FA-system class instance, and it will push the respective 
-;;;   Finite Automata - as represented by the reglex list expression - onto the FA, generating states as necessary
-;;;   from the state-kernel, and then will return the exit (final) state.
+;;;   Finite Automata - as represented by the reglex list expression - onto the FA class instance, generating states
+;;;   as necessary from the state-kernel, and then will return the exit (final) state.
 (defgeneric push-reglex (reglex-list FA-state-previous FA-system &rest reglex-op-args)
   (:documentation "Accept a list/tree composed of (a) lisp'ified regular expression(s) and recursively evaluate them into an FA."))
 
@@ -97,18 +99,25 @@ to a DFA anyways.
     (apply #'push-reglex operator
                          state-prev
                          fa-system
-                         operands)))
+                         operands))); => Final state of reglex expression.
+
+(defmethod push-reglex :before ((ε (eql 'ε)) (state-prev fa-state) (fa-system fa-system) &rest ε-args)
+  (when ε-args
+    (error "ε operator does not accept arguments.")))
 
 (defmethod push-reglex ((ε (eql 'ε)) (state-prev fa-state) (fa-system fa-system) &rest ε-args)
   "The empty string or epsilon transition: \"\" <=> {\"\"} <=> (ε) <=> (epsilon)."
+  (declare (ignore ε-args))
   (with-slots ((fa fa) (state-kernel state-kernel)) fa-system
-    (if ε-args
-	(error "Epsilon operator does not accept arguments.")
-	(let ((state-next (make-state state-kernel)))
-	  (make-transition 'ε                        ;Transition on ε from state-prev to state-next (going out).
-			   state-prev
-			   state-next
-			   fa))))); => state-next
+    (let ((state-next (make-state state-kernel)))
+      (make-transition 'ε                        ;Transition on ε from state-prev to state-next (going out).
+		       state-prev
+		       state-next
+		       fa)))); => state-next
+
+(defmethod push-reglex :before ((lit (eql 'lit)) (state-prev fa-state) (fa-system fa-system) &rest lit-args)
+  (unless lit-args
+    (error "LIT operator requires one or more arguments.")))
 
 (defmethod push-reglex ((lit (eql 'lit)) (state-prev fa-state) (fa-system fa-system) &rest lit-args)
   "One or more literal symbols (character): \"ab\" <=> {\"a\", \"b\"} <=> (lit #\a #\b)"
@@ -116,62 +125,94 @@ to a DFA anyways.
     (loop :for character :in lit-args
 	  :and state-char = (make-state state-kernel)
 	  :with state-next = (make-state state-kernel)
-	  :do (make-transition character              ;Transition on character from state-prev (coming in) to new state.
+	  :do (make-transition character         ;Transition on character from state-prev (coming in) to new state.
 			       state-prev
 			       state-char
 			       fa)
 	      (make-transition 'ε
-			       state-char             ;Transition on ε from new state to to state-next (going out).
+			       state-char        ;Transition on ε from new state to to state-next (going out).
 			       state-next
 			       fa)
 	  :finally (return state-next))))
-#|
-(defmethod push-reglex ((lits (eql 'lits)) (state-prev fa-state) (fa-system fa-system) &rest lits-args)
-  "Multiple literal symbols: [\"a\"\"b\"\"c\"] <=> {\"a\",\"b\",\"c\"} <=> (lits #\a #\b #\c) <=> (ors (lit #\a) (lit #\b) (lit #\c))."
-  (error "stub")))
-|#
+
+(defmethod push-reglex :before ((or (eql 'or)) (state-prev fa-state) (fa-system fa-system) &rest or-args)
+  (unless or-args
+    (error "OR operator requires one or more arguments.")))
+
 (defmethod push-reglex ((or (eql 'or)) (state-prev fa-state) (fa-system fa-system) &rest or-args)
   "A string in the language s xor in the language t: s|t <=> L(s) ∪ L(t) <=> (or s t)."
   (with-slots ((state-kernel state-kernel) (fa fa)) fa-system
     (loop :for or-arg :in or-args
 	  :and state-or = (make-state state-kernel)
 	  :with state-next = (make-state state-kernel)
-	  :do (make-transition 'ε                     ;Transition into reglex sub-expression
+	  :do (make-transition 'ε                ;Transition into reglex sub-expression
 			       state-prev
 			       state-or
 			       fa)
-	      (make-transition 'ε                     ;Transition out of reglex sub-expression to this (sub-)expression's final next-state.
+	      (make-transition 'ε                ;Transition out of reglex sub-expression to this (sub-)expression's final next-state.
 			       (push-reglex or-arg
 					    state-or
 					    fa-system); => Final next-state for reglex sub-expression.
 			       state-next
 			       fa)
 	  :finally (return state-next))))
-#|
-(defmethod push-reglex ((ors (eql 'ors)) (state-prev fa-state) (fa-system fa-system) &rest ors-args)
-  "Langauge is set: [st...v] <=> s|t|...|v <=> L(s) ∪ L(t) ∪ ... ∪ L(v) <=> (ors s t ... v) <=> (or s (or t (or ... (or v)...)))."
-  (error "stub"))
-|#
+
+(defmethod push-reglex :before ((conc (eql 'conc)) (state-prev fa-state) (fa-system fa-system) &rest conc-args)
+  (unless conc-args
+    (error "CONC operator requires one or more arguments.")))
+
 (defmethod push-reglex ((conc (eql 'conc)) (state-prev fa-state) (fa-system fa-system) &rest conc-args)
   "The language defined by concatenating a string from language s with a string from language t: st <=> {mn | m∈L(s), n∈L(t)} <=> (conc s t)."
   (with-slots ((state-kernel state-kernel) (fa fa)) fa-system
+    ;; Each state-next returned by a (push-reglex conc-arg ..) is the state-prev for the next conc-arg until the final one is just returned.
     (loop :for conc-arg :in conc-args
-		 
-	  :do (push-reglex conc-arg
-			   state-prev
-			   fa-system)
-	  )))
+	  :do (setf state-prev
+		    (push-reglex conc-arg
+				 state-prev
+				 fa-system))
+	  :finally (return state-prev)))); => Last push-reglex return state.
 
-(defmethod push-reglex ((star (eql 'star)) (state-prev fa-state) (fa-system fa-system) &rest star-args)
+(defmethod push-reglex :before ((star (eql 'star)) (state-prev fa-state) (fa-system fa-system) &rest star-arg)
+  (unless (and star-arg
+	       (not (cdr star-arg)))
+    (error "STAR operator requires exactly a single argument.")))
+
+(defmethod push-reglex ((star (eql 'star)) (state-prev fa-state) (fa-system fa-system) &rest star-arg)
   "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
-  (error "stub"))
+  (with-slots ((fa fa)) fa-system
+    ;; Just connect the return state from (push-reglex star-arg ...) back to where we started and return it: state-prev.
+    (make-transition 'ε
+		     (push-reglex star-arg
+				  state-prev
+				  fa-system)
+		     state-prev
+		     fa))); => state-prev
 
-(defmethod push-reglex ((plus (eql 'plus)) (state-prev fa-state) (fa-system fa-system) &rest plus-args)
+(defmethod push-reglex :before ((plus (eql 'plus)) (state-prev fa-state) (fa-system fa-system) &rest plus-arg)
+  (unless (and plus-arg
+	       (not (cdr plus-arg)))
+    (error "PLUS operator requires exactly a single argument.")))
+
+(defmethod push-reglex ((plus (eql 'plus)) (state-prev fa-state) (fa-system fa-system) &rest plus-arg)
   "A string that is a concatenation of one or more strings in the language s: s+ <=> {xy | x∈L(s), y∈L(s*)} <=> (plus s)."
+  (with-slots ((fa fa)) fa-system
+    (let ((state-next (push-reglex plus-arg
+				   state-prev
+				   fa-system)))
+      (make-transition 'ε
+		       state-next
+		       state-prev
+		       fa)
+      state-next)))
+
+(defmethod push-reglex :before ((inter (eql 'inter)) (state-prev fa-state) (fa-system fa-system) &rest inter-args)
   (error "stub"))
 
 (defmethod push-reglex ((inter (eql 'inter)) (state-prev fa-state) (fa-system fa-system) &rest inter-args)
   "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
+  (error "stub"))
+
+(defmethod push-reglex :before ((opt (eql 'opt)) (state-prev fa-state) (fa-system fa-system) &rest opt-args)
   (error "stub"))
 
 (defmethod push-reglex ((opt (eql 'opt)) (state-prev fa-state) (fa-system fa-system) &rest opt-args)
