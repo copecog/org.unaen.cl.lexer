@@ -29,10 +29,9 @@
 
 (defmethod make-transition :before (transit-symbol (state-prev FA-state) (state-next FA-state) (FA FA))
   (with-slots ((Q Q)) FA
-    (unless (sets:set-get-element state-prev Q)
-      (error "STATE-PREV is not a member of set of states Q in FA."))
-    (unless (sets:set-get-element state-next Q)
-      (error "STATE-NEXT is not a member of set of states Q in FA."))))
+    (unless (and (sets:set-get-element state-prev Q)
+		 (sets:set-get-element state-next Q))
+      (error "STATE-PREV or STATE-NEXT not a member of set Q in FA."))))
 
 ;; Instead of starting with a set Σ, we are adding the actual '(type character) or 'ε from the reglex.
 (flet ((make-transition (transit-symbol state-prev state-next FA)
@@ -205,8 +204,32 @@ to a DFA anyways.
 		       fa)
       state-next)))
 
+(defun inter-args-p (inter-args)
+  (labels ((check-inter-args (inter-begin inter-end inter-args-rest)
+	     (typecase inter-begin
+	       (character (typecase inter-end
+			    (character (when (char< inter-begin inter-end)
+					 (if inter-args-rest
+					     (check-inter-args (first inter-args-rest)
+							       (second inter-args-rest)
+							       (cddr inter-args-rest))
+					     t)))))
+	       ((integer 0 9) (typecase inter-end
+				((integer 0 9) (when (< inter-begin inter-end)
+						 (if inter-args-rest
+						     (check-inter-args (first inter-args-rest)
+								       (second inter-args-rest)
+								       (cddr inter-args-rest))
+						     t))))))))
+    (check-inter-args (first inter-args)
+		      (second inter-args)
+		      (cddr inter-args))))
+
+(deftype inter-args ()
+  `(satisfies inter-args-p))
+
 (defmethod push-reglex :before ((inter (eql 'inter)) (state-prev fa-state) (fa-system fa-system) &rest inter-args)
-  (error "stub"))
+  (check-type inter-args inter-args "pairs of CHAR< characters or < integers."))
 
 (defmethod push-reglex ((inter (eql 'inter)) (state-prev fa-state) (fa-system fa-system) &rest inter-args)
   "Shorthand for or'ing all characters in an interval: [\"0\"-\"9\"] <=> {\"0\",\"1\", ... ,\"9\"} <=> (inter #\0 #\9) <=> (lits #\0 #\1 ... #\9)."
