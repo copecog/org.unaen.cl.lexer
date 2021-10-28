@@ -18,16 +18,14 @@
                     (plus (inter #\0 #\9)))))
   "Reglex for a C language floating point number, equivalent to regex:  [+-]?((([0-9]+.[0-9]∗ | .[0-9]+)([eE][+-]?[0-9]+)?) | [0-9]+[eE][+-]?[0-9]+)")
 
-(defparameter *reglex.test.lit*
-  '(lit #\a #\b #\c))
-
-(defparameter *reglex.test.or*
-  '(or (lit #\a #\b #\c)
-       (lit #\1 #\2 #\3)))
-
-(defparameter *reglex.test.conc*
-  '(conc (lit #\a #\b #\c)
-         (lit #\1 #\2 #\3)))
+(defparameter *reglex.test.lit*   '(lit  #\a #\b #\c))
+(defparameter *reglex.test.lit-2* '(lit  #\1 #\2 #\3))
+(defparameter *reglex.test.or*    `(or   ,*reglex.test.lit* ,*reglex.test.lit-2*))
+(defparameter *reglex.test.conc*  `(conc ,*reglex.test.lit* ,*reglex.test.lit-2*))
+(defparameter *reglex.test.star*  `(star ,*reglex.test.lit*))
+(defparameter *reglex.test.plus*  `(plus ,*reglex.test.lit*))
+(defparameter *reglex.test.inter* '(inter #\a #\d))
+(defparameter *reglex.test.opt*   `(opt  ,*reglex.test.lit*))
 
 (defmethod push-reglex-test ((reglex-test list))
   (let ((fa-system (fa-system 'nfa)))
