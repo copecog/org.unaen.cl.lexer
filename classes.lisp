@@ -70,7 +70,7 @@ advantage.
 	    :reader FA-prev
 	    :documentation "A map of FA object to FA object it was derived from.")
    (Q-maps :initarg :Q-maps
-           :initform (maps:map)
+           :initform (maps:map); (map-get new-state Q-maps) => {old-state-1, old-state-2, ...}
            :reader Q-maps
            :documentation "Contains a map from derived FA states to the respective previous FA states.")
    (state-kernel :initarg :state-kernel

@@ -13,7 +13,6 @@
   :components ((:file "package")
                (:file "classes")
 	       (:file "util")
-	       (:file "fa")
 	       (:file "nfa")
 	       (:file "dfa")
 	       (:file "compiler")
