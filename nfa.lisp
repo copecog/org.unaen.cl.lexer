@@ -2,14 +2,18 @@
 
 (in-package #:org.unaen.cl.lexer)
 
-(defun FA-system (FA-type)
+(defun FA-system (FA-type &key reglex)
   "Return an FA class of object of type FA, NFA, or DFA (or subclass)."
-  (if (not (subtypep FA-type 'FA))
-      (error "FA-type must be a class or subclass of FA")      
-      (let* ((Q            (sets:set))
-	     (FA           (make-instance FA-type :Q Q))
-	     (state-kernel (make-instance 'FA-state-kernel :states Q)))
-	(make-instance 'FA-system :FA FA :state-kernel state-kernel))))
+  (flet ((make-fa (FA-type)
+	   (let* ((Q            (sets:set))
+		  (FA           (make-instance FA-type :Q Q))
+		  (state-kernel (make-instance 'FA-state-kernel :states Q)))
+	     (make-instance 'FA-system :FA FA :state-kernel state-kernel))))
+    (case FA-type
+      (NFA (make-fa FA-type))
+      (t   (if (not (subtypep FA-type 'FA))
+	       (error "FA-type must be a class or subclass of FA")      
+	       (make-fa FA-type))))))
 
 (defgeneric make-state (FA-state-kernel))
 
