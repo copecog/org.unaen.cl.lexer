@@ -2,7 +2,7 @@
 
 (defpackage #:org.unaen.cl.lexer
   (:use #:cl)
-  (:local-nicknames (#:alex #:alexandria)
+  (:local-nicknames (#:a #:alexandria)
 		    (#:util #:org.unaen.cl.util)
 		    (#:sets #:org.unaen.cl.sets)
 		    (#:maps #:org.unaen.cl.maps))
