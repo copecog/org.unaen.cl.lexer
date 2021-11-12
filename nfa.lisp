@@ -7,15 +7,13 @@
   (flet ((make-FA-system (FA-type reglex FA-system-prev)
 	   (let* ((Q            (sets:set))
 		  (state-kernel (make-instance 'FA-state-kernel :states Q))
-		  (q₀           (make-state state-kernel))
-		  (FA           (make-instance FA-type :Q Q :q₀ q₀)))
+		  (FA           (make-instance FA-type :Q Q)))
 	     (make-instance 'FA-system :reglex reglex :FA FA :FA-system-prev FA-system-prev :state-kernel state-kernel))))
     (cond ((and (equal 'NFA FA-type) reglex)
-	   (let ((FA-system (make-FA-system 'NFA reglex nil)))
-	     (with-fa-system-slots FA-system
-	       (with-fa-slots FA
-		 (sets:set-add-element (push-reglex reglex q₀ FA-system) F)))
-	     FA-system))
+	   (let ((NFA-system (make-FA-system 'NFA reglex nil)))
+	     (with-NFA-system-dot-slots NFA-system
+	       (sets:set-add-element (push-reglex reglex (setf NFA.q₀ (make-state NFA-system.state-kernel)) NFA-system) NFA.F))
+	     NFA-system))
 	  ((and (equal 'DFA FA-type) FA-system-prev)
 	   (make-FA-system 'DFA (reglex FA-system-prev) FA-system-prev))
 	  ((subtypep FA-type 'FA)
@@ -55,8 +53,8 @@
   (defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (FA FA))
     (make-transition transit-symbol state-prev state-next FA))
   
-  (defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (NFA NFA))
-    (make-transition 'ε state-prev state-next NFA)))
+  (defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (FA FA))
+    (make-transition 'ε state-prev state-next FA)))
 
 #|
 Some notes while thinking about what I need to implement for PUSH-REGLEX.
@@ -136,7 +134,7 @@ to a DFA anyways.
 	      (make-transition 'ε
 			       (push-reglex or-arg state-or FA-system)
 			       state-next
-			       fa)
+			       FA)
 	  :finally (return state-next))))
 
 (defmethod push-reglex :before ((conc (eql 'conc)) (state-prev FA-state) (FA-system FA-system) &rest conc-args)
@@ -160,7 +158,7 @@ to a DFA anyways.
     (make-transition 'ε
 		     (push-reglex star-arg state-prev FA-system)
 		     state-prev
-		     fa))); => state-prev
+		     FA))); => state-prev
 
 (defmethod push-reglex :before ((plus (eql 'plus)) (state-prev FA-state) (FA-system FA-system) &rest plus-arg)
   (unless (and plus-arg (not (cdr plus-arg)))
