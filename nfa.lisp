@@ -28,6 +28,8 @@
     (sets:set-add-element (make-instance 'FA-state :enum (incf iterate) :kernel state-kernel)
 			  states)))
 
+(deftype transit-symbol () `(or character (eql epsilon)))
+
 (defgeneric make-transition (transit-symbol FA-state-previous FA-state-next FA)
   (:documentation "Add mapping of state-prev ✕ transit-symbol → {state-next, ...} ∊ P(Q)."))
 
@@ -53,8 +55,9 @@
   (defmethod make-transition ((transit-symbol character) (state-prev FA-state) (state-next FA-state) (FA FA))
     (make-transition transit-symbol state-prev state-next FA))
   
-  (defmethod make-transition ((ε (eql 'ε)) (state-prev FA-state) (state-next FA-state) (FA FA))
-    (make-transition 'ε state-prev state-next FA)))
+  ;; Internally, the symbol EPSILON is used instead of ε, because it caused problems with CLOS dispatch.
+  (defmethod make-transition ((ε (eql 'epsilon)) (state-prev FA-state) (state-next FA-state) (FA FA))
+    (make-transition ε state-prev state-next FA)))
 
 #|
 Some notes while thinking about what I need to implement for PUSH-REGLEX.
@@ -106,7 +109,7 @@ to a DFA anyways.
   (declare (ignore ε-args))
   (with-FA-system-slots FA-system
     (let ((state-next (make-state state-kernel)))
-      (make-transition 'ε state-prev state-next FA)))); => state-next
+      (make-transition 'epsilon state-prev state-next FA)))); => state-next
 
 (defmethod push-reglex :before ((lit (eql 'lit)) (state-prev FA-state) (FA-system FA-system) &rest lit-args)
   (unless lit-args (error "LIT operator requires one or more arguments.")))
@@ -118,7 +121,7 @@ to a DFA anyways.
 	  :and  state-char = (make-state state-kernel)
 	  :with state-next = (make-state state-kernel)
 	  :do (make-transition character state-prev state-char FA)
-	      (make-transition 'ε        state-char state-next FA)
+	      (make-transition 'epsilon  state-char state-next FA)
 	  :finally (return state-next))))
 
 (defmethod push-reglex :before ((or (eql 'or)) (state-prev FA-state) (FA-system FA-system) &rest or-args)
@@ -130,8 +133,8 @@ to a DFA anyways.
     (loop :for or-arg :in or-args
 	  :and  state-or   = (make-state state-kernel)
 	  :with state-next = (make-state state-kernel)
-	  :do (make-transition 'ε state-prev state-or FA)
-	      (make-transition 'ε
+	  :do (make-transition 'epsilon state-prev state-or FA)
+	      (make-transition 'epsilon
 			       (push-reglex or-arg state-or FA-system)
 			       state-next
 			       FA)
@@ -155,7 +158,7 @@ to a DFA anyways.
 (defmethod push-reglex ((star (eql 'star)) (state-prev FA-state) (FA-system FA-system) &rest star-arg)
   "A string that is a concatenation of zero or more strings in the language s: s* <=> {\“\”} ∪ {vw | v∈L(s), w∈L(s∗)} <=> (star s)."
   (with-FA-system-slots FA-system
-    (make-transition 'ε
+    (make-transition 'epsilon
 		     (push-reglex star-arg state-prev FA-system)
 		     state-prev
 		     FA))); => state-prev
@@ -169,7 +172,7 @@ to a DFA anyways.
   (with-FA-system-slots FA-system
     (let ((state-next
 	    (push-reglex plus-arg state-prev FA-system)))
-      (make-transition 'ε state-next state-prev FA)
+      (make-transition 'epsilon state-next state-prev FA)
       state-next)))
 
 (defmethod push-reglex ((inter (eql 'inter)) (state-prev FA-state) (FA-system FA-system) &rest inter-args)
@@ -187,5 +190,5 @@ to a DFA anyways.
   (with-FA-system-slots FA-system
     (let ((state-next
 	    (push-reglex opt-arg state-prev FA-system)))
-      (make-transition 'ε state-prev state-next FA)))); => state-next
+      (make-transition 'epsilon state-prev state-next FA)))); => state-next
 

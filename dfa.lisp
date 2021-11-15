@@ -10,24 +10,34 @@
 (defmethod ε-closure ((FA-states sets:set) (NFA.Δ maps:map))
   (%ε-closure FA-states (sets:set) NFA.Δ))
 
-(deftype transit-char () `(or character (eql ε)))
+(defun %ε-closure (FA-states-prev FA-states-next Δ); => FA-states-next
+  (declare (type sets:set FA-states-prev FA-states-next) (type maps:map Δ))
+  (let ((FA-states-prev-new (sets:set)))
+    (sets:set-do-elements (state-prev FA-states-prev)
+      (sets:set-add-set-elements (maps:map-get `(,(sets:set-add-element state-prev FA-states-next) epsilon)
+					       Δ)
+				 FA-states-prev-new))
+    (if (sets:empty-set-p FA-states-prev-new)
+	FA-states-next
+	(%ε-closure FA-states-prev-new FA-states-next Δ))))
 
+#|
 (defun %ε-closure (FA-states-prev FA-states-next Δ)
   "Starting with and including FA-STATES-PREV, recursively add all states reachable by TRANSIT-CHAR via map data structure Δ, to => FA-STATES-NEXT."
   (declare (type sets:set FA-states-prev FA-states-next) (type maps:map Δ))
   (sets:set-do-elements (state-prev FA-states-prev FA-states-next); => FA-states-next
-    (unless (sets:set-member-p state-prev FA-states-next)
+    (unless (sets:set-member-p state-prev FA-states-next); Using membership of FA-states-next as a mark if ε-closure has been done on that branch.
       (sets:set-add-element state-prev FA-states-next)
-      (let ((state-prev->states (maps:map-get `(,state-prev ε) Δ)))
+      (let ((state-prev->states (maps:map-get `(,state-prev epsilon) Δ)))
 	(when (sets:setp state-prev->states)
 	  (%ε-closure state-prev->states FA-states-next Δ))))))
-
+|#
 #|
 (defmethod ε-closure ((fa-state fa-state) (nfa nfa))
   (transit-char-closure (sets:set fa-state)
 			(sets:set)
 			(slot-value nfa 'Δ)
-			'ε))
+			'epsilon))
 
 (defun transit-char-closure (fa-states-prev fa-states-next Δ transit-char)
   "Starting with and including FA-STATES-PREV, add all states reachable by TRANSIT-CHAR via map data structure Δ, to (=>) FA-STATES-NEXT."
@@ -101,11 +111,11 @@
 				       DFA.F))
 	    NFA-states-closure)))
 
-(defun get-transition-states (FA-states transit-char NFA.Δ)
-  (declare (type sets:set FA-states) (type transit-char transit-char) (type maps:map NFA.Δ))
+(defun get-transition-states (FA-states transit-symbol NFA.Δ)
+  (declare (type sets:set FA-states) (type transit-symbol transit-symbol) (type maps:map NFA.Δ))
   (let ((FA-transit-states (sets:set)))
     (sets:set-do-elements (FA-state FA-states FA-transit-states)
-      (sets:set-add-set-elements (maps:map-get `(,FA-state ,transit-char) NFA.Δ) FA-transit-states))))
+      (sets:set-add-set-elements (maps:map-get `(,FA-state ,transit-symbol) NFA.Δ) FA-transit-states))))
 
 (defun %NFA-states->DFA-states (NFA-state/s NFA-system DFA-system DFA-state-prev transit-char-prev)
   "Recursive function: Starting at NFA-state, perform ε-closure and then for each set reachable through a transition symbol in Σ in NFA, perform ε-closure repeating, => DFA start state."
