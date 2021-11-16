@@ -59,6 +59,40 @@
   (defmethod make-transition ((ε (eql 'epsilon)) (state-prev FA-state) (state-next FA-state) (FA FA))
     (make-transition ε state-prev state-next FA)))
 
+(labels ((get-set-transitions (transit-symbol FA-states-prev NFA.Δ)
+	   (let ((FA-transit-states (sets:set)))
+	     (sets:set-do-elements (FA-state-prev FA-states-prev FA-transit-states)
+	       (sets:set-add-set-elements (get-transition transit-symbol FA-state-prev NFA.Δ) FA-transit-states))))
+	 (get-transition (transit-symbol FA-state NFA.Δ)
+	   (declare (type FA-state FA-state))
+	   (maps:map-get `(,FA-state ,transit-symbol) NFA.Δ)))
+  
+  (defmethod get-transition ((ε (eql 'epsilon)) (FA-states-prev sets:set) (NFA.Δ maps:map))
+    (get-set-transitions ε FA-states-prev NFA.Δ))
+
+  (defmethod get-transition ((transit-symbol character) (FA-states-prev sets:set) (FA.Δ maps:map))
+    (get-set-transitions transit-symbol FA-states-prev FA.Δ))
+
+  (defmethod get-transition ((ε (eql 'epsilon)) (FA-state-prev FA-state) (NFA.Δ maps:map))
+    (get-transition ε FA-state-prev NFA.Δ))
+
+  (defmethod get-transition ((transit-symbol character) (FA-state-prev FA-state) (FA.Δ maps:map))
+    (get-transition transit-symbol FA-state-prev FA.Δ)))
+
+(defmethod get-transition (transit-symbol (FA-state-prev FA-state) (FA FA))
+  (with-FA-dot-slots FA
+    (get-transition transit-symbol FA-state-prev FA.Δ)))
+
+(defmethod get-transition-p (transit-symbol (state-prev FA-state) (state-next FA-state) (FA FA))
+  (with-FA-dot-slots FA
+    (get-transition-p transit-symbol state-prev state-next FA.Δ)))
+
+(defmethod get-transition-p (transit-symbol (state-prev FA-state) (state-next FA-state) (FA.Δ maps:map))
+  (let ((transitions (get-transition transit-symbol state-prev FA.Δ)))
+    (typecase transitions
+      (sets:set (sets:set-member-p state-next transitions))
+      (null     nil))))
+
 #|
 Some notes while thinking about what I need to implement for PUSH-REGLEX.
 

@@ -2,7 +2,7 @@
 
 (in-package #:org.unaen.cl.lexer)
 
-(declaim (optimize (debug 3)))
+;(declaim (optimize (debug 3)))
 
 (defmethod ε-closure ((FA-state FA-state) (NFA.Δ maps:map))
   (%ε-closure (sets:set FA-state) (sets:set) NFA.Δ))
@@ -14,44 +14,13 @@
   (declare (type sets:set FA-states-prev FA-states-next) (type maps:map Δ))
   (let ((FA-states-prev-new (sets:set)))
     (sets:set-do-elements (state-prev FA-states-prev)
-      (sets:set-add-set-elements (maps:map-get `(,(sets:set-add-element state-prev FA-states-next) epsilon)
-					       Δ)
+      (sets:set-add-set-elements (get-transition 'epsilon
+						 (sets:set-add-element state-prev FA-states-next)
+						 Δ)
 				 FA-states-prev-new))
     (if (sets:empty-set-p FA-states-prev-new)
 	FA-states-next
 	(%ε-closure FA-states-prev-new FA-states-next Δ))))
-
-#|
-(defun %ε-closure (FA-states-prev FA-states-next Δ)
-  "Starting with and including FA-STATES-PREV, recursively add all states reachable by TRANSIT-CHAR via map data structure Δ, to => FA-STATES-NEXT."
-  (declare (type sets:set FA-states-prev FA-states-next) (type maps:map Δ))
-  (sets:set-do-elements (state-prev FA-states-prev FA-states-next); => FA-states-next
-    (unless (sets:set-member-p state-prev FA-states-next); Using membership of FA-states-next as a mark if ε-closure has been done on that branch.
-      (sets:set-add-element state-prev FA-states-next)
-      (let ((state-prev->states (maps:map-get `(,state-prev epsilon) Δ)))
-	(when (sets:setp state-prev->states)
-	  (%ε-closure state-prev->states FA-states-next Δ))))))
-|#
-#|
-(defmethod ε-closure ((fa-state fa-state) (nfa nfa))
-  (transit-char-closure (sets:set fa-state)
-			(sets:set)
-			(slot-value nfa 'Δ)
-			'epsilon))
-
-(defun transit-char-closure (fa-states-prev fa-states-next Δ transit-char)
-  "Starting with and including FA-STATES-PREV, add all states reachable by TRANSIT-CHAR via map data structure Δ, to (=>) FA-STATES-NEXT."
-  (declare (type sets:set fa-states-prev fa-states-next)
-	   (type maps:map Δ)
-	   (type transit-char transit-char))
-  (sets:set-do-elements (state-prev fa-states-prev fa-states-next); => fa-states-next
-    (let ((element (sets:set-get-element state-prev fa-states-next)))
-      (when (null element)
-	(sets:set-add-element state-prev fa-states-next)
-	(let ((state-prev->states (maps:map-get `(,state-prev ,transit-char) Δ)))
-	  (when (sets:setp state-prev->states)
-	    (transit-char-closure state-prev->states fa-states-next Δ transit-char)))))))
-|#
 
 (defgeneric final-state-p (FA-state/s F/FA/system)
   (:method (FA-state/s (FA-system FA-system))
@@ -111,31 +80,31 @@
 				       DFA.F))
 	    NFA-states-closure)))
 
-(defun get-transition-states (FA-states transit-symbol NFA.Δ)
-  (declare (type sets:set FA-states) (type transit-symbol transit-symbol) (type maps:map NFA.Δ))
-  (let ((FA-transit-states (sets:set)))
-    (sets:set-do-elements (FA-state FA-states FA-transit-states)
-      (sets:set-add-set-elements (maps:map-get `(,FA-state ,transit-symbol) NFA.Δ) FA-transit-states))))
+(defun NFA-states->DFA-states (NFA-state/s NFA-system DFA-system)
+  (%NFA-states->DFA-states NFA-state/s NFA-system DFA-system nil nil))
 
-(defun %NFA-states->DFA-states (NFA-state/s NFA-system DFA-system DFA-state-prev transit-char-prev)
-  "Recursive function: Starting at NFA-state, perform ε-closure and then for each set reachable through a transition symbol in Σ in NFA, perform ε-closure repeating, => DFA start state."
-  (declare (type FA-state/s NFA-state/s) (type FA-system NFA-system DFA-system) (type (or (eql nil) FA-state) DFA-state-prev) (type (or (eql nil) transit-char) transit-char-prev))
+(defun %NFA-states->DFA-states (NFA-state/s NFA-system DFA-system DFA-state-prev transit-symbol-prev)
+  "Starting at NFA-state/s, perform ε-closure, check uniqueness and/or create new DFA-state (performed by NFA-state->DFA-state); Then loop over each set reachable through a transition symbol in Σ in NFA, recurse and repeat while forwarding new DFA-state and transition symbol to map between new DFA states; If mapping already exist, end this (circular) recursion branch; Return equivalent => starting DFA-state from starting NFA-state(s)."
+  (declare (type FA-state/s NFA-state/s) (type FA-system NFA-system DFA-system) (type (or (eql nil) FA-state) DFA-state-prev) (type (or (eql nil) transit-symbol) transit-symbol-prev))
   (with-NFA-system-dot-slots NFA-system
     (with-DFA-system-dot-slots DFA-system
-      (multiple-value-bind (DFA-state-new NFA-states-closure)
+      (multiple-value-bind (DFA-state-next NFA-states-closure)
 	  (NFA-state->DFA-state NFA-state/s NFA.Δ NFA.F	DFA.F DFA-system.state-kernel DFA-system.Q-maps)
-	(when (and DFA-state-prev transit-char-prev)
-	  (make-transition transit-char-prev DFA-state-prev DFA-state-new DFA))
-	(sets:set-do-elements (transit-char NFA.Σ DFA-state-new); => first DFA-state-new
-	  (let ((transition-states (get-transition-states NFA-states-closure transit-char NFA.Δ)))
-	    (when (not (sets:empty-set-p transition-states))
-	      (%NFA-states->DFA-states transition-states NFA-system DFA-system DFA-state-new transit-char))))))))
+	(when (and DFA-state-prev transit-symbol-prev)
+	  (if (get-transition-p transit-symbol-prev DFA-state-prev DFA-state-next DFA.Δ)
+	      (return-from %NFA-states->DFA-states DFA-state-next); Avoid circular recursion.
+	      (make-transition transit-symbol-prev DFA-state-prev DFA-state-next DFA)))
+	(sets:set-do-elements (transit-symbol NFA.Σ)
+	  (when (not (eq transit-symbol 'epsilon))
+	    (let ((transition-states (get-transition transit-symbol NFA-states-closure NFA.Δ)))
+	      (when (not (sets:empty-set-p transition-states))
+		(%NFA-states->DFA-states transition-states NFA-system DFA-system DFA-state-next transit-symbol)))))
+      DFA-state-next))))
 
 (defmethod NFA->DFA ((NFA-system FA-system))
   (with-NFA-system-dot-slots NFA-system
     (let ((DFA-system (FA-system 'DFA :reglex NFA-system.reglex :FA-system-prev NFA-system)))
       (with-DFA-system-dot-slots DFA-system
-	(setf DFA.q0
-	      (%NFA-states->DFA-states NFA.q0 NFA-system DFA-system nil nil)))
+	(setf DFA.q0 (NFA-states->DFA-states NFA.q0 NFA-system DFA-system)))
       DFA-system)))
 
