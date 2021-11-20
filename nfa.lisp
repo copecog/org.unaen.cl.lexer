@@ -11,8 +11,9 @@
 	     (make-instance 'FA-system :reglex reglex :FA FA :FA-system-prev FA-system-prev :state-kernel state-kernel))))
     (cond ((and (equal 'NFA FA-type) reglex)
 	   (let ((NFA-system (make-FA-system 'NFA reglex nil)))
-	     (with-NFA-system-dot-slots NFA-system
-	       (sets:set-add-element (push-reglex reglex (setf NFA.q₀ (make-state NFA-system.state-kernel)) NFA-system) NFA.F))
+	     (with-FA-system-dot-slots NFA-system
+	       (with-FA-dot-slots NFA-system.FA
+		 (sets:set-add-element (push-reglex reglex (setf NFA-system.FA.q₀ (make-state NFA-system.state-kernel)) NFA-system) NFA-system.FA.F)))
 	     NFA-system))
 	  ((and (equal 'DFA FA-type) FA-system-prev)
 	   (make-FA-system 'DFA (reglex FA-system-prev) FA-system-prev))

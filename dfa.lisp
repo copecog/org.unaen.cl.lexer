@@ -14,10 +14,7 @@
   (declare (type sets:set FA-states-prev FA-states-next) (type maps:map Δ))
   (let ((FA-states-prev-new (sets:set)))
     (sets:set-do-elements (state-prev FA-states-prev)
-      (sets:set-add-set-elements (get-transition 'epsilon
-						 (sets:set-add-element state-prev FA-states-next)
-						 Δ)
-				 FA-states-prev-new))
+      (sets:set-add-set-elements (get-transition 'epsilon (sets:set-add-element state-prev FA-states-next) Δ) FA-states-prev-new))
     (if (sets:empty-set-p FA-states-prev-new)
 	FA-states-next
 	(%ε-closure FA-states-prev-new FA-states-next Δ))))
@@ -74,37 +71,48 @@
 		DFA-state
 		(check/add-final-state NFA-states-closure
 				       NFA.F
-				       (add-Q-map (make-state DFA-system.state-kernel)
-						  NFA-states-closure
-						  DFA-system.Q-maps)
+				       (add-Q-map (make-state DFA-system.state-kernel) NFA-states-closure DFA-system.Q-maps)
 				       DFA.F))
 	    NFA-states-closure)))
 
-(defun NFA-states->DFA-states (NFA-state/s NFA-system DFA-system)
-  (%NFA-states->DFA-states NFA-state/s NFA-system DFA-system nil nil))
+(defun NFA-states->DFA-states (NFA-state/s NFA-sys DFA-sys)
+  (with-FA-system-dot-slots NFA-sys
+    (with-FA-dot-slots NFA-sys.FA
+      (with-FA-system-dot-slots DFA-sys
+	(with-FA-dot-slots DFA-sys.FA
+	  (%NFA-states->DFA-states NFA-state/s NFA-sys.FA.Σ NFA-sys.FA.Δ NFA-sys.FA.F DFA-sys.FA DFA-sys.FA.Δ DFA-sys.FA.F DFA-sys.Q-maps DFA-sys.state-kernel nil nil))))))
 
-(defun %NFA-states->DFA-states (NFA-state/s NFA-system DFA-system DFA-state-prev transit-symbol-prev)
-  "Starting at NFA-state/s, perform ε-closure, check uniqueness and/or create new DFA-state (performed by NFA-state->DFA-state); Then loop over each set reachable through a transition symbol in Σ in NFA, recurse and repeat while forwarding new DFA-state and transition symbol to map between new DFA states; If mapping already exist, end this (circular) recursion branch; Return equivalent => starting DFA-state from starting NFA-state(s)."
-  (declare (type FA-state/s NFA-state/s) (type FA-system NFA-system DFA-system) (type (or (eql nil) FA-state) DFA-state-prev) (type (or (eql nil) transit-symbol) transit-symbol-prev))
-  (with-NFA-system-dot-slots NFA-system
-    (with-DFA-system-dot-slots DFA-system
-      (multiple-value-bind (DFA-state-next NFA-states-closure)
-	  (NFA-state->DFA-state NFA-state/s NFA.Δ NFA.F	DFA.F DFA-system.state-kernel DFA-system.Q-maps)
-	(when (and DFA-state-prev transit-symbol-prev)
-	  (if (get-transition-p transit-symbol-prev DFA-state-prev DFA-state-next DFA.Δ)
-	      (return-from %NFA-states->DFA-states DFA-state-next); Avoid circular recursion.
-	      (make-transition transit-symbol-prev DFA-state-prev DFA-state-next DFA)))
-	(sets:set-do-elements (transit-symbol NFA.Σ)
-	  (when (not (eq transit-symbol 'epsilon))
-	    (let ((transition-states (get-transition transit-symbol NFA-states-closure NFA.Δ)))
-	      (when (not (sets:empty-set-p transition-states))
-		(%NFA-states->DFA-states transition-states NFA-system DFA-system DFA-state-next transit-symbol)))))
-      DFA-state-next))))
+;; Todo: Pass all slots already accessed to recursive function.
+(defun %NFA-states->DFA-states (NFA-state/s NFA-sys.FA.Σ NFA-sys.FA.Δ NFA-sys.FA.F DFA-sys.FA DFA-sys.FA.Δ DFA-sys.FA.F	DFA-sys.Q-maps DFA-sys.state-kernel DFA-state-prev transit-symbol-prev)
+  "Starting at NFA-state/s, perform ε-closure, check if already mapped or map to new DFA-state (performed by NFA-state->DFA-state); Then loop over each set reachable through a transition symbol in Σ in NFA, recurse and repeat while forwarding new DFA-state and transition symbol to map between new DFA states; If mapping already exist, end this (circular) recursion branch; Return equivalent starting NFA-state(s) => starting DFA-state."
+  (declare (type FA-state/s NFA-state/s) (type sets:set NFA-sys.FA.Σ NFA-sys.FA.F DFA-sys.FA.F) (type maps:map NFA-sys.FA.Δ DFA-sys.FA.Δ DFA-sys.Q-maps) (type FA-state-kernel DFA-sys.state-kernel) (type (or (eql nil) FA-state) DFA-state-prev) (type (or (eql nil) transit-symbol) transit-symbol-prev))
+  (multiple-value-bind (DFA-state-next NFA-states-closure)
+      (NFA-state->DFA-state NFA-state/s NFA-sys.FA.Δ NFA-sys.FA.F DFA-sys.FA.F DFA-sys.state-kernel DFA-sys.Q-maps)
+    (when (and DFA-state-prev transit-symbol-prev)
+      (if (get-transition-p transit-symbol-prev DFA-state-prev DFA-state-next DFA-sys.FA.Δ)
+	  (return-from %NFA-states->DFA-states DFA-state-next); Avoid circular recursion.
+	  (make-transition transit-symbol-prev DFA-state-prev DFA-state-next DFA-sys.FA)))
+    (sets:set-do-elements (transit-symbol NFA-sys.FA.Σ)
+      (when (not (eq transit-symbol 'epsilon))
+	(let ((transition-states (get-transition transit-symbol NFA-states-closure NFA-sys.FA.Δ)))
+	  (when (not (sets:empty-set-p transition-states))
+	    (%NFA-states->DFA-states transition-states NFA-sys.FA.Σ NFA-sys.FA.Δ NFA-sys.FA.F DFA-sys.FA DFA-sys.FA.Δ DFA-sys.FA.F DFA-sys.Q-maps DFA-sys.state-kernel DFA-state-next transit-symbol)))))
+    DFA-state-next))
 
 (defmethod NFA->DFA ((NFA-system FA-system))
-  (with-NFA-system-dot-slots NFA-system
-    (let ((DFA-system (FA-system 'DFA :reglex NFA-system.reglex :FA-system-prev NFA-system)))
-      (with-DFA-system-dot-slots DFA-system
-	(setf DFA.q0 (NFA-states->DFA-states NFA.q0 NFA-system DFA-system)))
-      DFA-system)))
+  (with-FA-system-dot-slots NFA-system
+    (with-FA-dot-slots NFA-system.FA
+      (let ((DFA-system (FA-system 'DFA :reglex NFA-system.reglex :FA-system-prev NFA-system)))
+	(with-FA-system-dot-slots DFA-system
+	  (with-FA-dot-slots DFA-system.FA
+	    (setf DFA-system.FA.q0 (NFA-states->DFA-states NFA-system.FA.q0 NFA-system DFA-system))))
+	DFA-system))))
 
+(defmethod DFA->DFA-minimized ((DFA-system-prev FA-system))
+  (with-FA-system-dot-slots DFA-system-prev
+    (with-FA-dot-slots DFA-system-prev.FA
+      (let ((DFA-system (FA-system 'DFA :reglex DFA-system-prev.reglex :FA-system-prev DFA-system-prev)))
+	(with-FA-system-dot-slots DFA-system
+	  (with-FA-dot-slots DFA-system.FA
+	    (setf DFA-system.FA.q0 (DFA->DFA-minimizer DFA-system-prev.FA.q0 DFA-system-prev DFA-system))))
+	DFA-system))))
